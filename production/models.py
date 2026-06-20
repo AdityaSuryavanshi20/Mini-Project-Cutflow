@@ -105,7 +105,11 @@ class OptimizationRun(models.Model):
     production_job = models.ForeignKey(ProductionJob, on_delete=models.CASCADE,
                                         related_name='optimization_runs')
     run_date = models.DateTimeField(auto_now_add=True)
-    bar_length_mm = models.IntegerField(default=6000)
+    bar_length_mm = models.IntegerField(
+        default=6000,
+        help_text='Most common stock bar length used across this run. '
+                   'Individual profiles/cuts may use other available stock lengths; '
+                   'see OptimizationSegment and OptimizedCut for exact values.')
     kerf_mm = models.IntegerField(default=5)
     end_waste_mm = models.IntegerField(default=10)
     min_reusable_mm = models.IntegerField(default=300)
@@ -132,7 +136,11 @@ class OptimizationSegment(models.Model):
                                           related_name='segments')
     profile = models.ForeignKey(Profile, on_delete=models.PROTECT)
     bars_required = models.IntegerField(default=0)
-    bar_length_mm = models.IntegerField(default=6000)
+    bar_length_mm = models.IntegerField(
+        default=6000,
+        help_text='Most common stock bar length used in this segment. '
+                   'See individual OptimizedCut.bar_length_mm for exact per-bar lengths '
+                   'when multiple stock lengths were used.')
     total_cut_length_mm = models.IntegerField(default=0)
     waste_mm = models.IntegerField(default=0)
     offcut_mm = models.IntegerField(default=0)
@@ -152,6 +160,8 @@ class OptimizedCut(models.Model):
     production_item = models.ForeignKey(ProductionItem, on_delete=models.SET_NULL,
                                          null=True, blank=True)
     bar_number = models.PositiveSmallIntegerField()
+    bar_length_mm = models.IntegerField(
+        default=6000, help_text='Actual stock bar length this cut was placed on')
     cut_length_mm = models.IntegerField()
     left_angle = models.DecimalField(max_digits=5, decimal_places=1, default=90)
     right_angle = models.DecimalField(max_digits=5, decimal_places=1, default=90)
@@ -162,7 +172,7 @@ class OptimizedCut(models.Model):
         ordering = ['bar_number', 'start_position_mm']
 
     def __str__(self):
-        return f"Bar {self.bar_number}: {self.cut_length_mm}mm"
+        return f"Bar {self.bar_number} ({self.bar_length_mm}mm): {self.cut_length_mm}mm"
 
 
 class ReusableOffcut(models.Model):

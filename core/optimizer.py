@@ -1,12 +1,12 @@
 """
 CutFlow – Bar Optimization Engine
 
-Implements first-fit decreasing cutting optimization with kerf, end waste,
-profile grouping, and reusable offcut tracking.
+Implements best-fit decreasing (BFD) cutting optimization with kerf, end
+waste, profile grouping, reusable offcut tracking, multi-length stock bar
+selection, and a post-pass bar consolidation step to reduce bar count.
 """
-from bisect import insort
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 
 @dataclass
@@ -164,14 +164,162 @@ def _normalize_offcut_pool(available_offcuts: Optional[List[Any]]) -> Dict[int, 
     return pool
 
 
+def _resolve_stock_lengths(
+    bar_length: Union[int, Dict[Any, Any]],
+    profile_id: int,
+    profile_stock_no: str,
+    default_length: int = 6000,
+) -> List[int]:
+    """
+    Normalize the `bar_length` argument into a sorted list of available stock
+    lengths (ascending) for a given profile.
+
+    Accepts:
+      - a single int (back-compat): one stock length for every profile.
+      - a dict keyed by profile_id or profile_stock_no, whose value is either
+        a single int or a list/tuple of ints (multiple stock lengths stocked
+        for that profile, e.g. [5950, 6000, 6500]).
+    Falls back to `default_length` if nothing matches.
+    """
+    if isinstance(bar_length, (int, float)):
+        return [int(bar_length)]
+
+    if isinstance(bar_length, dict):
+        candidate = bar_length.get(profile_id, bar_length.get(profile_stock_no))
+        if candidate is None:
+            return [int(default_length)]
+        if isinstance(candidate, (list, tuple, set)):
+            lengths = sorted({int(v) for v in candidate if int(v) > 0})
+            return lengths or [int(default_length)]
+        return [int(candidate)]
+
+    return [int(default_length)]
+
+
+def _best_stock_length_for(remaining_requests: List[CutRequest], stock_lengths: List[int],
+                            kerf: int, end_waste: int) -> int:
+    """
+    Choose the stock length that wastes the least material for the next bar,
+    given the current queue of pending requests (longest-first). Tries to
+    pack as many of the next pending cuts as possible into each candidate
+    stock length and picks the one with the smallest leftover after that
+    greedy fill, preferring the shortest stock length on ties (less capital
+    tied up / less leftover offcut to store).
+    """
+    if len(stock_lengths) == 1:
+        return stock_lengths[0]
+    if not remaining_requests:
+        return stock_lengths[0]
+
+    mandatory_length = remaining_requests[0].length
+    best_length = None
+    best_leftover = None
+    for length in stock_lengths:
+        remaining = length - end_waste
+        if remaining < mandatory_length:
+            continue
+        fitted_any = False
+        for req in remaining_requests:
+            needed = req.length + (kerf if fitted_any else 0)
+            if needed <= remaining:
+                remaining -= needed
+                fitted_any = True
+            else:
+                break
+        if best_leftover is None or remaining < best_leftover:
+            best_leftover = remaining
+            best_length = length
+
+    if best_length is None:
+        # Nothing fits the mandatory cut; let the caller's oversize check
+        # raise a clear error rather than silently picking a too-small bar.
+        return max(stock_lengths)
+
+    return best_length
+
+
+def _consolidate_bars(bars: List[OptimizedBar], kerf: int) -> List[OptimizedBar]:
+    """
+    Post-pass: try to fully drain the most under-filled bars into the spare
+    capacity of other bars, eliminating bars outright when every one of
+    their cuts can be relocated. Only ever merges into bars that have more
+    free space than the donor (so end-waste accounting never changes for
+    the receiving bar), and only commits a move if it actually reduces the
+    total bar count. Safe no-op when nothing can be consolidated.
+    """
+    if len(bars) < 2:
+        return bars
+
+    changed = True
+    while changed:
+        changed = False
+        # Try donors from the most empty (least utilised) bar first.
+        donors = sorted(bars, key=lambda b: b.cut_length_mm)
+        for donor in donors:
+            if not donor.cuts:
+                continue
+            receivers = [b for b in bars if b is not donor]
+            if not receivers:
+                continue
+
+            donor_cuts = sorted(donor.cuts, key=lambda c: c.cut_request.length, reverse=True)
+            placement: Dict[int, OptimizedBar] = {}
+            simulated_remaining = {id(b): b.remaining for b in receivers}
+            simulated_has_cuts = {id(b): bool(b.cuts) for b in receivers}
+            feasible = True
+
+            for cut in donor_cuts:
+                best_bar = None
+                best_after = None
+                for receiver in receivers:
+                    key = id(receiver)
+                    needed = cut.cut_request.length + (kerf if simulated_has_cuts[key] else 0)
+                    if needed <= simulated_remaining[key]:
+                        after = simulated_remaining[key] - needed
+                        if best_after is None or after < best_after:
+                            best_after = after
+                            best_bar = receiver
+                if best_bar is None:
+                    feasible = False
+                    break
+                key = id(best_bar)
+                simulated_remaining[key] -= (
+                    cut.cut_request.length + (kerf if simulated_has_cuts[key] else 0)
+                )
+                simulated_has_cuts[key] = True
+                placement[id(cut)] = best_bar
+
+            if not feasible:
+                continue
+
+            # Commit: move every cut from donor into its chosen receiver.
+            for cut in donor_cuts:
+                target = placement[id(cut)]
+                target.cuts.append(cut)
+            bars = [b for b in bars if b is not donor]
+            changed = True
+            break
+
+    return bars
+
+
 def optimize_cuts(
     cut_requests: List[CutRequest],
-    bar_length: int = 6000,
+    bar_length: Union[int, Dict[Any, Any]] = 6000,
     kerf: int = 5,
     end_waste: int = 10,
     min_reusable: int = 300,
     available_offcuts: Optional[List[Any]] = None,
+    consolidate: bool = True,
 ) -> Dict[int, OptimizationResult]:
+    """
+    bar_length may be a single int (one stock length for every profile, the
+    original behaviour) or a dict mapping profile_id/profile_stock_no to an
+    int or list of ints describing the stock lengths available for that
+    profile. When multiple lengths are available, the smallest length that
+    still fits the next pending cuts with minimal leftover is chosen for
+    each new bar.
+    """
     profile_groups: Dict[int, List[CutRequest]] = {}
     for request in cut_requests:
         profile_groups.setdefault(request.profile_id, []).append(request)
@@ -190,22 +338,29 @@ def optimize_cuts(
             continue
 
         sorted_requests = sorted(expanded, key=lambda r: r.length, reverse=True)
+        sample = sorted_requests[0]
+        stock_lengths = _resolve_stock_lengths(
+            bar_length, profile_id, sample.profile_stock_no, default_length=6000
+        )
+
         bars: List[OptimizedBar] = []
         next_bar_id = 1
-        available_offcuts = offcut_pool.get(profile_id, [])
+        profile_offcuts = offcut_pool.get(profile_id, [])
         used_offcut_ids: List[int] = []
         leftover_offcuts: List[Dict[str, Any]] = []
         offcut_scrap_mm = 0
 
-        def create_bar() -> OptimizedBar:
+        def create_bar(pending_after_this: List[CutRequest]) -> OptimizedBar:
             nonlocal next_bar_id
-            sample = sorted_requests[0]
+            chosen_length = _best_stock_length_for(
+                pending_after_this, stock_lengths, kerf, end_waste
+            )
             bar = OptimizedBar(
                 bar_id=next_bar_id,
                 profile_id=profile_id,
                 profile_stock_no=sample.profile_stock_no,
                 profile_name=sample.profile_name,
-                bar_length=bar_length,
+                bar_length=chosen_length,
                 kerf=kerf,
                 end_waste=end_waste,
                 min_reusable=min_reusable,
@@ -217,7 +372,7 @@ def optimize_cuts(
             nonlocal offcut_scrap_mm
             best_index = None
             best_remaining = None
-            for index, offcut in enumerate(available_offcuts):
+            for index, offcut in enumerate(profile_offcuts):
                 extra = end_waste if offcut['used_cuts'] == 0 else kerf + end_waste
                 if offcut['length'] >= request.length + extra:
                     remaining = offcut['length'] - request.length - extra
@@ -227,19 +382,19 @@ def optimize_cuts(
             if best_index is None:
                 return False
 
-            selected = available_offcuts[best_index]
+            selected = profile_offcuts[best_index]
             selected['used_cuts'] += 1
             if selected['offcut_id'] is not None and selected['offcut_id'] not in used_offcut_ids:
                 used_offcut_ids.append(selected['offcut_id'])
             selected['length'] = best_remaining
             if selected['length'] < min_reusable:
                 offcut_scrap_mm += selected['length']
-                del available_offcuts[best_index]
+                del profile_offcuts[best_index]
             else:
-                available_offcuts.sort(key=lambda item: item['length'])
+                profile_offcuts.sort(key=lambda item: item['length'])
             return True
 
-        for request in sorted_requests:
+        for index, request in enumerate(sorted_requests):
             if allocate_from_offcut(request):
                 continue
 
@@ -263,12 +418,13 @@ def optimize_cuts(
                 ))
                 continue
 
-            if request.length > bar_length - end_waste:
+            longest_available_stock = max(stock_lengths)
+            if request.length > longest_available_stock - end_waste:
                 raise ValueError(
                     f"Cut length {request.length}mm exceeds available bar capacity "
-                    f"{bar_length - end_waste}mm for profile {request.profile_stock_no}."
+                    f"{longest_available_stock - end_waste}mm for profile {request.profile_stock_no}."
                 )
-            bar = create_bar()
+            bar = create_bar([request] + sorted_requests[index + 1:])
             bar.cuts.append(OptimizedCut(
                 cut_request=request,
                 bar_id=bar.bar_id,
@@ -277,7 +433,7 @@ def optimize_cuts(
             ))
             bars.append(bar)
 
-        for offcut in available_offcuts:
+        for offcut in profile_offcuts:
             if offcut['used_cuts'] > 0 and offcut['length'] >= min_reusable:
                 leftover_offcuts.append({
                     'offcut_id': offcut['offcut_id'],
@@ -286,6 +442,9 @@ def optimize_cuts(
                 })
             elif offcut['used_cuts'] > 0:
                 offcut_scrap_mm += offcut['length']
+
+        if consolidate:
+            bars = _consolidate_bars(bars, kerf=kerf)
 
         for bar in bars:
             bar.sort_cuts()

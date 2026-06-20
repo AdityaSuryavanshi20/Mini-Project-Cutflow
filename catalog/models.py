@@ -144,6 +144,36 @@ class Profile(models.Model):
     def __str__(self):
         return f"{self.stock_no} – {self.name}"
 
+    def available_stock_lengths(self):
+        """
+        All stock lengths (mm) this profile is carried in, including the
+        primary `standard_bar_length`. Used by the bar optimizer to pick the
+        most economical stock length per bar instead of always assuming a
+        single fixed length.
+        """
+        extra = list(
+            self.stock_lengths.filter(is_active=True).values_list('length_mm', flat=True)
+        )
+        lengths = {int(self.standard_bar_length)} | {int(v) for v in extra}
+        return sorted(lengths)
+
+
+class ProfileStockLength(models.Model):
+    """Additional stock bar length a profile is carried in, beyond standard_bar_length"""
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='stock_lengths')
+    length_mm = models.IntegerField(help_text='Stock bar length in mm')
+    cost_per_meter_override = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text='Leave blank to use the profile\u2019s standard cost per metre')
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['profile', 'length_mm']
+        unique_together = [('profile', 'length_mm')]
+
+    def __str__(self):
+        return f"{self.profile.stock_no} @ {self.length_mm}mm"
+
 
 class ProfileFormula(models.Model):
     """Dynamic formula for computing cut length of a profile in a system"""

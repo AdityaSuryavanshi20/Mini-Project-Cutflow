@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (Brand, Color, System, SystemProfile, Profile, ProfileFormula,
-                     Glass, Hardware, SystemHardwareRule, CompanySettings)
+                     ProfileStockLength, Glass, Hardware, SystemHardwareRule, CompanySettings)
 
 
 class SystemProfileInline(admin.TabularInline):
@@ -28,13 +28,18 @@ class ProfileFormulaInline(admin.TabularInline):
     model = ProfileFormula
     extra = 1
 
+class ProfileStockLengthInline(admin.TabularInline):
+    model = ProfileStockLength
+    extra = 1
+    fields = ['length_mm', 'cost_per_meter_override', 'is_active']
+
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
     list_display = ['stock_no', 'name', 'category', 'weight_per_meter', 'cost_per_meter',
                     'standard_bar_length', 'is_active']
     list_filter = ['category', 'is_active']
     search_fields = ['stock_no', 'name']
-    inlines = [ProfileFormulaInline]
+    inlines = [ProfileFormulaInline, ProfileStockLengthInline]
 
 @admin.register(ProfileFormula)
 class ProfileFormulaAdmin(admin.ModelAdmin):

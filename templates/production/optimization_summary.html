@@ -30,28 +30,43 @@
     <span>{{ seg.bars_required }} bars · {{ seg.total_cut_length_mm }}mm used · {{ seg.waste_mm }}mm waste</span>
   </div>
   <div class="card-body p-0">
-    <table class="table table-sm mb-0">
-      <thead><tr><th>Bar #</th><th>Order/Line</th><th>Length (mm)</th><th>L Angle</th><th>R Angle</th><th>Position</th></tr></thead>
+    {% regroup seg.cuts.all by bar_number as bar_list %}
+    {% for bar_group in bar_list %}
+    <table class="table table-sm mb-0 border-bottom">
+      <thead>
+        <tr class="table-light">
+          <th colspan="6">
+            Bar {{ bar_group.grouper }}
+            <span class="text-muted">– {{ bar_group.list.0.bar_length_mm }}mm stock</span>
+          </th>
+        </tr>
+        <tr><th>Order/Line</th><th>Length (mm)</th><th>L Angle</th><th>R Angle</th><th>Position</th><th></th></tr>
+      </thead>
       <tbody>
-        {% for cut in seg.cuts.all %}
+        {% for cut in bar_group.list %}
         <tr>
-          <td><strong>{{ cut.bar_number }}</strong></td>
           <td>{{ job.job_no }}/{{ cut.production_item.line_no|default:"—" }}</td>
           <td class="fw-semibold">{{ cut.cut_length_mm }}</td>
           <td>{{ cut.left_angle }}°</td>
           <td>{{ cut.right_angle }}°</td>
           <td><small>{{ cut.position_code|default:"—" }}</small></td>
+          <td></td>
         </tr>
         {% endfor %}
-        {% if seg.offcut_mm >= 300 %}
+      </tbody>
+    </table>
+    {% endfor %}
+    {% if seg.offcut_mm >= 300 %}
+    <table class="table table-sm mb-0">
+      <tbody>
         <tr class="table-warning">
           <td colspan="2"><strong>Offcut</strong></td>
           <td class="fw-bold text-success">{{ seg.offcut_mm }}</td>
           <td colspan="3"><small>Reusable offcut stored</small></td>
         </tr>
-        {% endif %}
       </tbody>
     </table>
+    {% endif %}
   </div>
 </div>
 {% empty %}

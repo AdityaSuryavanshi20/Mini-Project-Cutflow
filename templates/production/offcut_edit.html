@@ -1,0 +1,48 @@
+{% extends "base/base.html" %}
+{% block title %}Edit Offcut{% endblock %}
+{% block page_title %}Edit Offcut{% endblock %}
+{% block nav_offcuts %}active{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        {{ offcut.profile.stock_no }} – {{ offcut.profile.name }}
+      </div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label">Length (mm)</label>
+            <input type="number" name="length_mm" class="form-control" min="1"
+                   value="{{ offcut.length_mm }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Location / Rack Notes</label>
+            <input type="text" name="location_notes" class="form-control"
+                   value="{{ offcut.location_notes }}" placeholder="e.g. Rack A, Shelf 3">
+          </div>
+          <div class="form-check mb-3">
+            <input type="checkbox" name="is_available" id="is_available" class="form-check-input"
+                   {% if offcut.is_available %}checked{% endif %}>
+            <label for="is_available" class="form-check-label">Available for reuse</label>
+          </div>
+          {% if offcut.source_job %}
+          <p class="text-muted small mb-3">Sourced from job {{ offcut.source_job.job_no }}</p>
+          {% endif %}
+          {% if offcut.used_in_job %}
+          <p class="text-muted small mb-3">Used in job {{ offcut.used_in_job.job_no }}</p>
+          {% endif %}
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="fa fa-save me-1"></i> Save Changes
+            </button>
+            <a href="{% url 'offcut_inventory' %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

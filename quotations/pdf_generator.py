@@ -419,7 +419,11 @@ def generate_cutting_list_pdf(optimization_run) -> bytes:
             bars[cut.bar_number].append(cut)
 
         for bar_no, cuts in bars.items():
-            bar_len = segment.bar_length_mm
+            # Each cut now records the actual stock length it was placed on;
+            # a segment can legitimately mix bar lengths (e.g. some cuts on
+            # 3000mm offcuts, others on fresh 6000mm bars), so read it per
+            # bar rather than assuming the whole segment is uniform.
+            bar_len = cuts[0].bar_length_mm if cuts else segment.bar_length_mm
             bar_label = f"{1} x {bar_len}"
             elems.append(Paragraph(f"Bar {bar_no}  –  {bar_label}", S['small']))
 

@@ -7,7 +7,7 @@ Orchestrates:
 4. Persisting all results to DB
 """
 import logging
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 from django.db import transaction
 from decimal import Decimal
@@ -307,6 +307,7 @@ def run_optimization(
     )
 
     cut_requests = []
+    profiles_by_id = {}
     production_items = list(production_job.items.all())
     if not production_items:
         run.delete()
@@ -326,6 +327,7 @@ def run_optimization(
         for cut in cuts:
             if cut.quantity <= 0:
                 continue
+            profiles_by_id[cut.profile_id] = cut.profile
             cut_requests.append(CutRequest(
                 profile_id=cut.profile.pk,
                 profile_stock_no=cut.profile.stock_no,
@@ -357,9 +359,14 @@ def run_optimization(
         )
     )
 
+    bar_length_by_profile = {
+        profile_id: profile.available_stock_lengths()
+        for profile_id, profile in profiles_by_id.items()
+    }
+
     results = optimize_cuts(
         cut_requests,
-        bar_length=settings.default_bar_length_mm,
+        bar_length=bar_length_by_profile,
         kerf=settings.kerf_mm,
         end_waste=settings.end_waste_mm,
         min_reusable=settings.min_reusable_offcut_mm,
@@ -381,11 +388,22 @@ def run_optimization(
             )
             continue
 
+        # Most common stock bar length actually used for this profile's bars
+        # (falls back to the company default if no bars were created, e.g.
+        # an entirely offcut-fed segment).
+        length_counts: Dict[int, int] = {}
+        for bar in opt_result.bars:
+            length_counts[bar.bar_length] = length_counts.get(bar.bar_length, 0) + 1
+        primary_bar_length = (
+            max(length_counts, key=length_counts.get)
+            if length_counts else settings.default_bar_length_mm
+        )
+
         segment = OptimizationSegment.objects.create(
             optimization_run=run,
             profile=profile,
             bars_required=opt_result.total_bars,
-            bar_length_mm=settings.default_bar_length_mm,
+            bar_length_mm=primary_bar_length,
             total_cut_length_mm=opt_result.total_used_mm,
             waste_mm=opt_result.total_waste_mm,
             offcut_mm=opt_result.total_offcuts_mm,
@@ -404,6 +422,7 @@ def run_optimization(
                     segment=segment,
                     production_item=prod_item,
                     bar_number=bar.bar_id,
+                    bar_length_mm=bar.bar_length,
                     cut_length_mm=bar_cut.cut_request.length,
                     left_angle=bar_cut.cut_request.left_angle,
                     right_angle=bar_cut.cut_request.right_angle,
@@ -486,6 +505,13 @@ def run_optimization(
     run.total_cut_mm = total_used
     run.total_waste_mm = total_waste
     run.utilisation_pct = Decimal(str(utilisation))
+    run_length_counts: Dict[int, int] = {}
+    for segment in run.segments.all():
+        run_length_counts[segment.bar_length_mm] = (
+            run_length_counts.get(segment.bar_length_mm, 0) + segment.bars_required
+        )
+    if run_length_counts:
+        run.bar_length_mm = max(run_length_counts, key=run_length_counts.get)
     run.save()
 
     production_job.status = ProductionJobStatus.OPTIMIZED

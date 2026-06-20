@@ -1,0 +1,42 @@
+{% extends "base/base.html" %}
+{% block title %}Add Offcut{% endblock %}
+{% block page_title %}Add Offcut{% endblock %}
+{% block nav_offcuts %}active{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">New Reusable Offcut</div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label">Profile</label>
+            <select name="profile" class="form-select" required>
+              <option value="">— Select profile —</option>
+              {% for p in profiles %}
+              <option value="{{ p.pk }}">{{ p.stock_no }} – {{ p.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Length (mm)</label>
+            <input type="number" name="length_mm" class="form-control" min="1" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Location / Rack Notes</label>
+            <input type="text" name="location_notes" class="form-control" placeholder="e.g. Rack A, Shelf 3">
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="fa fa-save me-1"></i> Add Offcut
+            </button>
+            <a href="{% url 'offcut_inventory' %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

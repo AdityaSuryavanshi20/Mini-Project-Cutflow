@@ -1,0 +1,83 @@
+{% extends "base/base.html" %}
+{% block title %}Offcut Inventory{% endblock %}
+{% block page_title %}Offcut Inventory{% endblock %}
+{% block nav_offcuts %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 no-print flex-wrap gap-2">
+  <form method="get" class="d-flex gap-2 flex-wrap">
+    <select name="profile" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+      <option value="">All Profiles</option>
+      {% for p in profiles %}
+      <option value="{{ p.pk }}" {% if p.pk == selected_profile %}selected{% endif %}>
+        {{ p.stock_no }} – {{ p.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="status" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+      <option value="available" {% if selected_status == 'available' %}selected{% endif %}>Available</option>
+      <option value="used" {% if selected_status == 'used' %}selected{% endif %}>Used / Scrapped</option>
+      <option value="all" {% if selected_status == 'all' %}selected{% endif %}>All</option>
+    </select>
+  </form>
+  <a href="{% url 'offcut_add' %}" class="btn btn-sm btn-gold">
+    <i class="fa fa-plus me-1"></i> Add Offcut
+  </a>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Profile</th><th>Length (mm)</th><th>Status</th>
+          <th>Source Job</th><th>Used In Job</th><th>Location</th><th>Added</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in offcuts %}
+        <tr>
+          <td>{{ o.profile.stock_no }} <small class="text-muted">{{ o.profile.name }}</small></td>
+          <td class="fw-semibold">{{ o.length_mm }}</td>
+          <td>
+            {% if o.is_available %}
+            <span class="badge bg-success">Available</span>
+            {% else %}
+            <span class="badge bg-secondary">Used / Scrapped</span>
+            {% endif %}
+          </td>
+          <td>{{ o.source_job.job_no|default:"—" }}</td>
+          <td>{{ o.used_in_job.job_no|default:"—" }}</td>
+          <td>{{ o.location_notes|default:"—" }}</td>
+          <td><small class="text-muted">{{ o.created_at|date:"d M Y" }}</small></td>
+          <td class="text-end">
+            <div class="d-flex gap-1 justify-content-end">
+              <a href="{% url 'offcut_edit' o.pk %}" class="btn btn-sm btn-outline-secondary" title="Edit">
+                <i class="fa fa-edit"></i>
+              </a>
+              {% if o.is_available %}
+              <form method="post" action="{% url 'offcut_scrap' o.pk %}" class="d-inline"
+                    onsubmit="return confirm('Mark this offcut as scrapped/unavailable?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-warning" title="Mark Scrapped">
+                  <i class="fa fa-ban"></i>
+                </button>
+              </form>
+              {% endif %}
+              <form method="post" action="{% url 'offcut_delete' o.pk %}" class="d-inline"
+                    onsubmit="return confirm('Permanently remove this offcut record?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                  <i class="fa fa-trash"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-center text-muted py-4">No offcuts found for this filter.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
