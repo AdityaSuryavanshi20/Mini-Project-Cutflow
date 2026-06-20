@@ -1,0 +1,139 @@
+{% extends "base/base.html" %}
+{% load core_extras %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+
+{% block content %}
+<!-- Stats Row -->
+<div class="row g-3 mb-4">
+  {% for label, key, icon, color in stats_display %}
+  <div class="col-md-3 col-6">
+    <div class="card">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="rounded-circle d-flex align-items-center justify-content-center"
+             style="width:46px;height:46px;background:{{ color }}20;">
+          <i class="fa {{ icon }} fa-lg" style="color:{{ color }};"></i>
+        </div>
+        <div>
+          <div class="fw-bold fs-4">{{ stats|get_item:key }}</div>
+          <div class="text-muted small">{{ label }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="col-md-3 col-6">
+    <div class="card">
+      <div class="card-body">
+        <div class="fw-bold fs-4">{{ stats.total_projects }}</div>
+        <div class="text-muted small">Total Projects</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card">
+      <div class="card-body">
+        <div class="fw-bold fs-4">{{ stats.draft }}</div>
+        <div class="text-muted small">Draft</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card">
+      <div class="card-body">
+        <div class="fw-bold fs-4">{{ stats.production }}</div>
+        <div class="text-muted small">In Production</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card">
+      <div class="card-body">
+        <div class="fw-bold fs-4">{{ stats.locked }}</div>
+        <div class="text-muted small">Locked</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Recent Projects -->
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="fa fa-folder-open me-2"></i>Recent Projects</span>
+    <a href="{% url 'project_list' %}" class="btn btn-sm btn-outline-light">View All</a>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Reference</th>
+          <th>Project Name</th>
+          <th>Customer</th>
+          <th>Status</th>
+          <th>Salesman</th>
+          <th>Updated</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in recent_projects %}
+        <tr>
+          <td><a href="{% url 'project_detail' p.pk %}" class="fw-semibold text-decoration-none">{{ p.reference }}</a></td>
+          <td>{{ p.name }}</td>
+          <td>{{ p.customer.name }}</td>
+          <td>
+            <span class="status-pill
+              {% if p.status == 'draft' %}bg-secondary text-white
+              {% elif p.status == 'quoted' %}bg-primary text-white
+              {% elif p.status == 'production' %}bg-warning text-dark
+              {% elif p.status == 'locked' %}bg-danger text-white
+              {% else %}bg-success text-white{% endif %}">
+              {{ p.get_status_display }}
+            </span>
+            {% if p.is_locked %}<i class="fa fa-lock ms-1 text-danger" title="Locked"></i>{% endif %}
+          </td>
+          <td>{{ p.salesman.get_full_name|default:p.salesman.username|default:"—" }}</td>
+          <td class="text-muted small">{{ p.updated_at|date:"d M Y" }}</td>
+          <td>
+            <a href="{% url 'project_detail' p.pk %}" class="btn btn-sm btn-outline-primary">Open</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">No projects yet.
+          <a href="{% url 'project_create' %}">Create one</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row g-3 mt-3">
+  <div class="col-md-4">
+    <a href="{% url 'project_create' %}" class="card text-decoration-none hover-card">
+      <div class="card-body text-center py-4">
+        <i class="fa fa-plus-circle fa-2x mb-2" style="color:var(--cf-mid);"></i>
+        <div class="fw-semibold">New Project</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-4">
+    <a href="{% url 'customer_create' %}" class="card text-decoration-none hover-card">
+      <div class="card-body text-center py-4">
+        <i class="fa fa-user-plus fa-2x mb-2" style="color:var(--cf-gold);"></i>
+        <div class="fw-semibold">New Customer</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-4">
+    <a href="{% url 'job_list' %}" class="card text-decoration-none hover-card">
+      <div class="card-body text-center py-4">
+        <i class="fa fa-industry fa-2x mb-2" style="color:var(--cf-red);"></i>
+        <div class="fw-semibold">Production Jobs</div>
+      </div>
+    </a>
+  </div>
+</div>
+{% endblock %}

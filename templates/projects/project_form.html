@@ -1,0 +1,43 @@
+{% extends "base/base.html" %}
+{% block title %}{{ action }} Project{% endblock %}
+{% block page_title %}{{ action }} Project{% endblock %}
+{% block nav_projects %}active{% endblock %}
+{% block content %}
+<div class="card" style="max-width:700px;">
+  <div class="card-header">{{ action }} Project</div>
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Reference <span class="text-danger">*</span></label>
+          <input type="text" name="reference" class="form-control" value="{{ post.reference|default:'' }}" required placeholder="R2904">
+        </div>
+        <div class="col-md-8">
+          <label class="form-label">Project Name <span class="text-danger">*</span></label>
+          <input type="text" name="name" class="form-control" value="{{ post.name|default:'' }}" required>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Customer <span class="text-danger">*</span></label>
+          <select name="customer" class="form-select" required>
+            <option value="">— Select Customer —</option>
+            {% for c in customers %}<option value="{{ c.pk }}" {% if post.customer == c.pk|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Site Address</label>
+          <textarea name="site_address" class="form-control" rows="2">{{ post.site_address|default:'' }}</textarea>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" class="form-control" rows="2">{{ post.notes|default:'' }}</textarea>
+        </div>
+      </div>
+      <div class="mt-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">{{ action }} Project</button>
+        <a href="{% url 'project_list' %}" class="btn btn-outline-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base/base.html" %}
+{% block title %}Customers{% endblock %}
+{% block page_title %}Customers{% endblock %}
+{% block nav_customers %}active{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between mb-3">
+  <form class="d-flex gap-2" method="get">
+    <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search name/phone...">
+    <button class="btn btn-outline-secondary">Search</button>
+  </form>
+  <a href="{% url 'customer_create' %}" class="btn btn-primary"><i class="fa fa-plus me-1"></i>New Customer</a>
+</div>
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Name</th><th>Company</th><th>Phone</th><th>Email</th><th>City</th><th>Projects</th><th></th></tr></thead>
+      <tbody>
+        {% for c in customers %}
+        <tr>
+          <td><a href="{% url 'customer_detail' c.pk %}" class="fw-semibold">{{ c.name }}</a></td>
+          <td>{{ c.company|default:"—" }}</td>
+          <td>{{ c.phone|default:"—" }}</td>
+          <td>{{ c.email|default:"—" }}</td>
+          <td>{{ c.city|default:"—" }}</td>
+          <td>{{ c.projects.count }}</td>
+          <td><a href="{% url 'customer_detail' c.pk %}" class="btn btn-sm btn-outline-primary">View</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">No customers. <a href="{% url 'customer_create' %}">Add first</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

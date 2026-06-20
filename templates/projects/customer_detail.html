@@ -1,0 +1,45 @@
+{% extends "base/base.html" %}
+{% block title %}{{ customer.name }}{% endblock %}
+{% block page_title %}Customer: {{ customer.name }}{% endblock %}
+{% block nav_customers %}active{% endblock %}
+{% block content %}
+<div class="row g-3 mb-3">
+  <div class="col-md-5">
+    <div class="card">
+      <div class="card-header">Contact Details</div>
+      <div class="card-body">
+        {% if customer.company %}<p class="mb-1"><strong>Company:</strong> {{ customer.company }}</p>{% endif %}
+        <p class="mb-1"><strong>Phone:</strong> {{ customer.phone|default:"—" }}</p>
+        <p class="mb-1"><strong>Email:</strong> {{ customer.email|default:"—" }}</p>
+        <p class="mb-1"><strong>Address:</strong> {{ customer.full_address|default:"—" }}</p>
+        {% if customer.notes %}<p class="mb-0 mt-2 text-muted small">{{ customer.notes }}</p>{% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-7">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between">
+        <span>Projects</span>
+        <a href="{% url 'project_create' %}?customer={{ customer.pk }}" class="btn btn-sm btn-outline-light">+ New Project</a>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Reference</th><th>Name</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            {% for p in projects %}
+            <tr>
+              <td><a href="{% url 'project_detail' p.pk %}">{{ p.reference }}</a></td>
+              <td>{{ p.name }}</td>
+              <td><span class="badge bg-secondary">{{ p.get_status_display }}</span></td>
+              <td><a href="{% url 'project_detail' p.pk %}" class="btn btn-xs btn-sm btn-outline-primary">Open</a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-muted text-center py-3">No projects yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

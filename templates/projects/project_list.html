@@ -1,0 +1,39 @@
+{% extends "base/base.html" %}
+{% block title %}Projects{% endblock %}
+{% block page_title %}Projects{% endblock %}
+{% block nav_projects %}active{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between mb-3">
+  <div>
+    {% for val, label in statuses %}
+    <a href="?status={{ val }}" class="btn btn-sm {% if status_filter == val %}btn-primary{% else %}btn-outline-secondary{% endif %} me-1">{{ label }}</a>
+    {% endfor %}
+    <a href="?" class="btn btn-sm btn-outline-secondary">All</a>
+  </div>
+  <a href="{% url 'project_create' %}" class="btn btn-primary"><i class="fa fa-plus me-1"></i>New Project</a>
+</div>
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Reference</th><th>Name</th><th>Customer</th><th>Status</th><th>Salesman</th><th>Measurements</th><th>Updated</th><th></th></tr></thead>
+      <tbody>
+        {% for p in projects %}
+        <tr>
+          <td><a href="{% url 'project_detail' p.pk %}" class="fw-semibold">{{ p.reference }}</a>
+            {% if p.is_locked %}<i class="fa fa-lock ms-1 text-danger" title="Locked"></i>{% endif %}</td>
+          <td>{{ p.name }}</td>
+          <td><a href="{% url 'customer_detail' p.customer.pk %}">{{ p.customer.name }}</a></td>
+          <td><span class="badge bg-secondary">{{ p.get_status_display }}</span></td>
+          <td>{{ p.salesman.get_full_name|default:"—" }}</td>
+          <td>{{ p.measurements.count }}</td>
+          <td class="text-muted small">{{ p.updated_at|date:"d M Y" }}</td>
+          <td><a href="{% url 'project_detail' p.pk %}" class="btn btn-sm btn-outline-primary">Open</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-center text-muted py-4">No projects. <a href="{% url 'project_create' %}">Create first project</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

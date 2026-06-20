@@ -1,0 +1,181 @@
+{% extends "base/base.html" %}
+{% block title %}{{ job.job_no }}{% endblock %}
+{% block page_title %}Production Job: {{ job.job_no }}{% endblock %}
+{% block nav_jobs %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex gap-2 mb-3 flex-wrap no-print">
+  {% if not job.items.exists %}
+  <form method="post" action="{% url 'generate_production_items' job.pk %}" class="d-inline">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-sm btn-primary">
+      <i class="fa fa-magic me-1"></i> Generate Items from Measurements
+    </button>
+  </form>
+  {% endif %}
+  {% if job.items.exists %}
+  <form method="post" action="{% url 'run_optimization' job.pk %}" class="d-inline">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-sm btn-gold">
+      <i class="fa fa-cut me-1"></i> Run Bar Optimization
+    </button>
+  </form>
+  {% endif %}
+  {% if active_run %}
+  <a href="{% url 'cutting_list_pdf' job.pk %}" class="btn btn-sm btn-outline-danger" target="_blank">
+    <i class="fa fa-file-pdf me-1"></i> Cutting List PDF
+  </a>
+  <a href="{% url 'optimization_summary' job.pk %}" class="btn btn-sm btn-outline-primary">
+    <i class="fa fa-chart-bar me-1"></i> Optimization Summary
+  </a>
+  {% endif %}
+  <a href="{% url 'hardware_summary' job.pk %}" class="btn btn-sm btn-outline-secondary">
+    <i class="fa fa-tools me-1"></i> Hardware BOQ
+  </a>
+  <a href="{% url 'glass_schedule' job.pk %}" class="btn btn-sm btn-outline-info">
+    <i class="fa fa-square me-1"></i> Glass Schedule
+  </a>
+  <a href="{% url 'project_detail' job.project.pk %}" class="btn btn-sm btn-outline-secondary">
+    <i class="fa fa-arrow-left me-1"></i> Back to Project
+  </a>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between">
+        <span><i class="fa fa-industry me-2"></i>Job Details</span>
+        <span class="badge bg-{% if job.status == 'complete' %}success{% elif job.status == 'optimized' %}warning text-dark{% else %}primary{% endif %}">
+          {{ job.get_status_display }}
+        </span>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-sm-6">
+            <p class="mb-1"><strong>Job No.:</strong> {{ job.job_no }}</p>
+            <p class="mb-1"><strong>Project:</strong>
+              <a href="{% url 'project_detail' job.project.pk %}">{{ job.project.reference }}</a></p>
+            <p class="mb-1"><strong>Customer:</strong> {{ job.project.customer.name }}</p>
+          </div>
+          <div class="col-sm-6">
+            <p class="mb-1"><strong>Created:</strong> {{ job.created_at|date:"d M Y H:i" }}</p>
+            <p class="mb-1"><strong>Scheduled:</strong> {{ job.scheduled_date|date:"d M Y"|default:"Not set" }}</p>
+            <p class="mb-1"><strong>Assigned:</strong> {{ job.assigned_to.get_full_name|default:"—" }}</p>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <form method="post" action="{% url 'update_job_status' job.pk %}" class="d-flex gap-2 align-items-center">
+          {% csrf_token %}
+          <select name="status" class="form-select form-select-sm" style="width:180px;">
+            {% for val, label in statuses %}
+            <option value="{{ val }}" {% if job.status == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-sm btn-primary">Update Status</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    {% if active_run %}
+    <div class="card">
+      <div class="card-header bg-success text-white">Optimization Results</div>
+      <div class="card-body">
+        <p class="mb-1"><strong>Bars Used:</strong> {{ active_run.total_bars_used }}</p>
+        <p class="mb-1"><strong>Material:</strong> {{ active_run.total_material_mm }}mm</p>
+        <p class="mb-1"><strong>Used:</strong> {{ active_run.total_cut_mm }}mm</p>
+        <p class="mb-1"><strong>Waste:</strong> {{ active_run.total_waste_mm }}mm</p>
+        <p class="mb-1"><strong>Utilisation:</strong>
+          <span class="fw-bold {% if active_run.utilisation_pct >= 85 %}text-success{% elif active_run.utilisation_pct >= 70 %}text-warning{% else %}text-danger{% endif %}">
+            {{ active_run.utilisation_pct }}%
+          </span>
+        </p>
+      </div>
+    </div>
+    {% else %}
+    <div class="card">
+      <div class="card-header">Optimization</div>
+      <div class="card-body text-muted text-center py-4">
+        No optimization run yet.<br>Generate items and run optimization.
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Production Items -->
+<div class="card mb-3">
+  <div class="card-header"><i class="fa fa-list me-2"></i>Production Items ({{ items|length }})</div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr><th>Line</th><th>Ref</th><th>Location</th><th>System</th>
+            <th>W×H (mm)</th><th>Qty</th><th>Glass</th><th>Cuts</th><th>Hardware</th><th>Done</th></tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td><strong>{{ item.line_no }}</strong></td>
+          <td>{{ item.reference }}</td>
+          <td>{{ item.location }}</td>
+          <td><small>{{ item.system.name }}</small></td>
+          <td>{{ item.width }}×{{ item.height }}</td>
+          <td>{{ item.qty }}</td>
+          <td><small>{{ item.glass|default:"—" }}</small></td>
+          <td><span class="badge bg-info">{{ item.cut_items.count }} cuts</span></td>
+          <td><span class="badge bg-secondary">{{ item.hardware_items.count }} items</span></td>
+          <td>
+            {% if item.is_complete %}
+            <i class="fa fa-check-circle text-success"></i>
+            {% else %}
+            <i class="fa fa-circle text-muted"></i>
+            {% endif %}
+          </td>
+        </tr>
+        {% if item.cut_items.exists %}
+        <tr class="table-light">
+          <td colspan="10" class="py-1 px-4">
+            <small class="text-muted">
+              <strong>Cuts:</strong>
+              {% for c in item.cut_items.all %}
+              {{ c.profile.stock_no }} {{ c.cut_length_mm }}mm ×{{ c.quantity }}
+              {% if c.left_angle != 90 %}[{{ c.left_angle }}°/{{ c.right_angle }}°]{% endif %}
+              {% if not forloop.last %} | {% endif %}
+              {% endfor %}
+            </small>
+          </td>
+        </tr>
+        {% endif %}
+        {% empty %}
+        <tr><td colspan="10" class="text-center text-muted py-4">
+          No items. Click "Generate Items from Measurements" above.
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Reusable Offcuts Available -->
+{% if offcuts %}
+<div class="card">
+  <div class="card-header"><i class="fa fa-recycle me-2"></i>Available Reusable Offcuts</div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0">
+      <thead><tr><th>Profile</th><th>Length (mm)</th><th>Source Job</th><th>Location</th></tr></thead>
+      <tbody>
+        {% for o in offcuts %}
+        <tr>
+          <td>{{ o.profile.stock_no }} – {{ o.profile.name }}</td>
+          <td class="fw-semibold">{{ o.length_mm }}</td>
+          <td>{{ o.source_job.job_no|default:"—" }}</td>
+          <td>{{ o.location_notes|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base/base.html" %}
+{% block title %}Quotations{% endblock %}
+{% block page_title %}Quotations{% endblock %}
+{% block nav_quotations %}active{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Quote No.</th><th>Project</th><th>Customer</th><th>Status</th><th>Date</th><th>Grand Total</th><th></th></tr></thead>
+      <tbody>
+        {% for q in quotations %}
+        <tr>
+          <td><a href="{% url 'quotation_detail' q.pk %}" class="fw-semibold">{{ q.quote_no }}/R{{ q.revision }}</a></td>
+          <td><a href="{% url 'project_detail' q.project.pk %}">{{ q.project.reference }}</a></td>
+          <td>{{ q.project.customer.name }}</td>
+          <td><span class="badge bg-secondary">{{ q.get_status_display }}</span></td>
+          <td>{{ q.quote_date|date:"d M Y" }}</td>
+          <td class="fw-semibold">₹ {{ q.grand_total|floatformat:2 }}</td>
+          <td>
+            <a href="{% url 'quotation_detail' q.pk %}" class="btn btn-sm btn-outline-primary">Open</a>
+            <a href="{% url 'quotation_pdf' q.pk %}" class="btn btn-sm btn-outline-danger" target="_blank">PDF</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">No quotations yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

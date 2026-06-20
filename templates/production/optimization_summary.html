@@ -1,0 +1,60 @@
+{% extends "base/base.html" %}
+{% block title %}Optimization Summary{% endblock %}
+{% block page_title %}Optimization Summary – {{ job.job_no }}{% endblock %}
+{% block nav_jobs %}active{% endblock %}
+{% block content %}
+<div class="d-flex gap-2 mb-3">
+  <a href="{% url 'cutting_list_pdf' job.pk %}" class="btn btn-sm btn-danger" target="_blank">
+    <i class="fa fa-file-pdf me-1"></i> Download Cutting List PDF
+  </a>
+  <a href="{% url 'job_detail' job.pk %}" class="btn btn-sm btn-outline-secondary">← Back to Job</a>
+</div>
+<div class="row g-3 mb-4">
+  <div class="col-md-3"><div class="card"><div class="card-body text-center">
+    <div class="fw-bold fs-3">{{ run.total_bars_used }}</div><div class="text-muted small">Total Bars</div>
+  </div></div></div>
+  <div class="col-md-3"><div class="card"><div class="card-body text-center">
+    <div class="fw-bold fs-3">{{ run.total_cut_mm }}</div><div class="text-muted small">Cut Length (mm)</div>
+  </div></div></div>
+  <div class="col-md-3"><div class="card"><div class="card-body text-center">
+    <div class="fw-bold fs-3 text-danger">{{ run.total_waste_mm }}</div><div class="text-muted small">Waste (mm)</div>
+  </div></div></div>
+  <div class="col-md-3"><div class="card"><div class="card-body text-center">
+    <div class="fw-bold fs-3 text-success">{{ run.utilisation_pct }}%</div><div class="text-muted small">Utilisation</div>
+  </div></div></div>
+</div>
+{% for seg in segments %}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between">
+    <span><strong>{{ seg.profile.name }}</strong> ({{ seg.profile.stock_no }})</span>
+    <span>{{ seg.bars_required }} bars · {{ seg.total_cut_length_mm }}mm used · {{ seg.waste_mm }}mm waste</span>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0">
+      <thead><tr><th>Bar #</th><th>Order/Line</th><th>Length (mm)</th><th>L Angle</th><th>R Angle</th><th>Position</th></tr></thead>
+      <tbody>
+        {% for cut in seg.cuts.all %}
+        <tr>
+          <td><strong>{{ cut.bar_number }}</strong></td>
+          <td>{{ job.job_no }}/{{ cut.production_item.line_no|default:"—" }}</td>
+          <td class="fw-semibold">{{ cut.cut_length_mm }}</td>
+          <td>{{ cut.left_angle }}°</td>
+          <td>{{ cut.right_angle }}°</td>
+          <td><small>{{ cut.position_code|default:"—" }}</small></td>
+        </tr>
+        {% endfor %}
+        {% if seg.offcut_mm >= 300 %}
+        <tr class="table-warning">
+          <td colspan="2"><strong>Offcut</strong></td>
+          <td class="fw-bold text-success">{{ seg.offcut_mm }}</td>
+          <td colspan="3"><small>Reusable offcut stored</small></td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% empty %}
+<p class="text-muted">No optimization data.</p>
+{% endfor %}
+{% endblock %}

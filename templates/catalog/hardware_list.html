@@ -1,0 +1,30 @@
+{% extends "base/base.html" %}
+{% block title %}Hardware{% endblock %}
+{% block page_title %}Hardware Catalog{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between">
+    <span><i class="fa fa-tools me-2"></i>Hardware &amp; Accessories</span>
+    <a href="/admin/catalog/hardware/add/" class="btn btn-sm btn-outline-light">+ Add</a>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Stock No.</th><th>Name</th><th>Category</th><th>Unit</th><th>Cost</th><th>Weight</th></tr></thead>
+      <tbody>
+        {% for h in hardware %}
+        <tr>
+          <td><strong>{{ h.stock_no }}</strong></td>
+          <td>{{ h.name }}</td>
+          <td><span class="badge bg-secondary">{{ h.get_category_display }}</span></td>
+          <td>{{ h.unit }}</td>
+          <td>₹ {{ h.unit_cost }}</td>
+          <td>{{ h.weight_per_unit }} kg</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No hardware entries.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

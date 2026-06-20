@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+{% load core_extras %}
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}CutFlow{% endblock %} | {{ company_settings.company_name }}</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<style>
+  :root {
+    --cf-dark: #1E3A5F;
+    --cf-mid: #2B5797;
+    --cf-gold: #C9922A;
+    --cf-light: #EDF2F7;
+    --cf-red: #C0392B;
+    --sidebar-w: 240px;
+  }
+  body { font-family: 'Segoe UI', sans-serif; background: #f4f6f9; }
+  .sidebar {
+    width: var(--sidebar-w); min-height: 100vh; background: var(--cf-dark);
+    position: fixed; top: 0; left: 0; z-index: 1000; overflow-y: auto;
+  }
+  .sidebar .brand {
+    padding: 1.2rem 1rem; font-size: 1.3rem; font-weight: 700;
+    color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .sidebar .brand span { color: var(--cf-gold); }
+  .sidebar .nav-link {
+    color: rgba(255,255,255,0.75); padding: .55rem 1rem; font-size: .875rem;
+    display: flex; align-items: center; gap: .6rem; border-radius: 0;
+    transition: all .2s;
+  }
+  .sidebar .nav-link:hover, .sidebar .nav-link.active {
+    color: #fff; background: var(--cf-mid);
+  }
+  .sidebar .nav-section {
+    font-size: .7rem; text-transform: uppercase; letter-spacing: .1em;
+    color: rgba(255,255,255,.4); padding: .8rem 1rem .2rem;
+  }
+  .main-content { margin-left: var(--sidebar-w); min-height: 100vh; }
+  .topbar {
+    background: #fff; border-bottom: 1px solid #e2e8f0;
+    padding: .7rem 1.5rem; display: flex; align-items: center;
+    justify-content: space-between; position: sticky; top: 0; z-index: 900;
+  }
+  .page-body { padding: 1.5rem; }
+  .card { border: none; box-shadow: 0 1px 4px rgba(0,0,0,.08); border-radius: 8px; }
+  .card-header { background: var(--cf-dark); color: #fff; font-weight: 600; border-radius: 8px 8px 0 0 !important; }
+  .badge-draft { background: #718096; }
+  .badge-quoted { background: var(--cf-mid); }
+  .badge-production { background: var(--cf-gold); }
+  .badge-locked { background: var(--cf-red); }
+  .badge-complete { background: #27ae60; }
+  .btn-primary { background: var(--cf-mid); border-color: var(--cf-mid); }
+  .btn-primary:hover { background: var(--cf-dark); border-color: var(--cf-dark); }
+  .btn-gold { background: var(--cf-gold); border-color: var(--cf-gold); color: #fff; }
+  .btn-gold:hover { background: #b07d20; border-color: #b07d20; color: #fff; }
+  .table th { background: var(--cf-light); font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .table td { font-size: .875rem; vertical-align: middle; }
+  .status-pill {
+    display: inline-block; padding: .2rem .6rem; border-radius: 20px;
+    font-size: .75rem; font-weight: 600; text-transform: uppercase;
+  }
+  .locked-banner {
+    background: #fff3cd; border: 1px solid #ffc107;
+    padding: .5rem 1rem; border-radius: 6px; font-size: .875rem;
+  }
+  @media print { .sidebar, .topbar, .no-print { display: none !important; }
+    .main-content { margin-left: 0; } }
+</style>
+{% block extra_css %}{% endblock %}
+</head>
+<body>
+{% if user.is_authenticated %}
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="brand">Cut<span>Flow</span></div>
+  <ul class="nav flex-column mt-2">
+    <li class="nav-section">Main</li>
+    <li><a class="nav-link {% block nav_dashboard %}{% endblock %}" href="{% url 'dashboard' %}">
+      <i class="fa fa-tachometer-alt fa-fw"></i> Dashboard</a></li>
+
+    <li class="nav-section">Sales</li>
+    <li><a class="nav-link {% block nav_customers %}{% endblock %}" href="{% url 'customer_list' %}">
+      <i class="fa fa-users fa-fw"></i> Customers</a></li>
+    <li><a class="nav-link {% block nav_projects %}{% endblock %}" href="{% url 'project_list' %}">
+      <i class="fa fa-folder-open fa-fw"></i> Projects</a></li>
+    <li><a class="nav-link {% block nav_quotations %}{% endblock %}" href="{% url 'quotation_list' %}">
+      <i class="fa fa-file-invoice fa-fw"></i> Quotations</a></li>
+
+    <li class="nav-section">Production</li>
+    <li><a class="nav-link {% block nav_jobs %}{% endblock %}" href="{% url 'job_list' %}">
+      <i class="fa fa-industry fa-fw"></i> Production Jobs</a></li>
+
+    <li class="nav-section">Catalog</li>
+    <li><a class="nav-link" href="{% url 'system_list' %}">
+      <i class="fa fa-cubes fa-fw"></i> Systems</a></li>
+    <li><a class="nav-link" href="{% url 'profile_list' %}">
+      <i class="fa fa-bars fa-fw"></i> Profiles</a></li>
+    <li><a class="nav-link" href="{% url 'glass_list' %}">
+      <i class="fa fa-square fa-fw"></i> Glass</a></li>
+    <li><a class="nav-link" href="{% url 'hardware_list' %}">
+      <i class="fa fa-tools fa-fw"></i> Hardware</a></li>
+
+    {% if user.profile.is_admin %}
+    <li class="nav-section">Admin</li>
+    <li><a class="nav-link" href="/admin/">
+      <i class="fa fa-cog fa-fw"></i> Django Admin</a></li>
+    {% endif %}
+  </ul>
+</nav>
+
+<!-- Main -->
+<div class="main-content">
+  <div class="topbar">
+    <h6 class="mb-0 fw-semibold">{% block page_title %}{% endblock %}</h6>
+    <div class="d-flex align-items-center gap-3">
+      {% if messages %}
+        {% for msg in messages %}
+        <div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible mb-0 py-1 px-3 small" role="alert">
+          {{ msg }} <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+      {% endif %}
+      <span class="text-muted small">{{ user.get_full_name|default:user.username }}
+        <span class="badge bg-secondary ms-1">{{ user.profile.role }}</span></span>
+      <a href="{% url 'logout' %}" class="text-muted small"><i class="fa fa-sign-out-alt"></i></a>
+    </div>
+  </div>
+  <div class="page-body">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+{% else %}
+{% block auth_content %}{% endblock %}
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

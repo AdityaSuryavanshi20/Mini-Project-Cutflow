@@ -1,0 +1,30 @@
+{% extends "base/base.html" %}
+{% load core_extras %}
+{% block title %}Production Jobs{% endblock %}
+{% block page_title %}Production Jobs{% endblock %}
+{% block nav_jobs %}active{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Job No.</th><th>Project</th><th>Customer</th><th>Status</th><th>Items</th><th>Opt. Run</th><th>Scheduled</th><th></th></tr></thead>
+      <tbody>
+        {% for job in jobs %}
+        <tr>
+          <td><a href="{% url 'job_detail' job.pk %}" class="fw-semibold">{{ job.job_no }}</a></td>
+          <td><a href="{% url 'project_detail' job.project.pk %}">{{ job.project.reference }}</a></td>
+          <td>{{ job.project.customer.name }}</td>
+          <td><span class="badge bg-{% if job.status == 'complete' %}success{% elif job.status == 'optimized' %}warning text-dark{% else %}primary{% endif %}">{{ job.get_status_display }}</span></td>
+          <td>{{ job.items.count }}</td>
+          <td>{% if job|has_active_optimization %}<i class="fa fa-check-circle text-success"></i>{% else %}—{% endif %}</td>
+          <td>{{ job.scheduled_date|date:"d M Y"|default:"—" }}</td>
+          <td><a href="{% url 'job_detail' job.pk %}" class="btn btn-sm btn-outline-primary">Open</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-center text-muted py-4">No production jobs yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

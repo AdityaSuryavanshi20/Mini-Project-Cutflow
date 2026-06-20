@@ -1,0 +1,398 @@
+{% extends "base/base.html" %}
+{% block title %}{{ project.reference }}{% endblock %}
+{% block page_title %}Project: {{ project.reference }} – {{ project.name }}{% endblock %}
+{% block nav_projects %}active{% endblock %}
+
+{% block content %}
+{% if project.is_locked %}
+<div class="locked-banner mb-3">
+  <i class="fa fa-lock me-2"></i> <strong>Project Locked</strong> –
+  {{ project.lock_reason }} (by {{ project.locked_by.get_full_name|default:project.locked_by.username }}
+  on {{ project.locked_at|date:"d M Y H:i" }})
+  {% if user.profile.is_admin %}
+  <form method="post" action="{% url 'project_unlock' project.pk %}" class="d-inline ms-3">
+    {% csrf_token %}
+    <button class="btn btn-sm btn-warning">Unlock</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="row g-3 mb-3">
+  <div class="col-md-8">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fa fa-info-circle me-2"></i>Project Details</span>
+        <span class="status-pill bg-{% if project.status == 'locked' %}danger{% else %}primary{% endif %} text-white">
+          {{ project.get_status_display }}
+        </span>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-sm-6">
+            <p class="mb-1"><strong>Reference:</strong> {{ project.reference }}</p>
+            <p class="mb-1"><strong>Customer:</strong>
+              <a href="{% url 'customer_detail' project.customer.pk %}">{{ project.customer.name }}</a></p>
+            <p class="mb-1"><strong>Salesman:</strong>
+              {{ project.salesman.get_full_name|default:project.salesman.username|default:"—" }}</p>
+            <p class="mb-1"><strong>Site Address:</strong>
+              {{ project.site_address|default:"Not specified" }}</p>
+          </div>
+          <div class="col-sm-6">
+            <p class="mb-1"><strong>Created:</strong> {{ project.created_at|date:"d M Y" }}</p>
+            <p class="mb-1"><strong>Survey Date:</strong> {{ project.survey_date|date:"d M Y"|default:"TBD" }}</p>
+            <p class="mb-1"><strong>Delivery Date:</strong> {{ project.delivery_date|date:"d M Y"|default:"TBD" }}</p>
+          </div>
+        </div>
+        {% if project.notes %}<p class="mt-2 text-muted small">{{ project.notes }}</p>{% endif %}
+      </div>
+      <div class="card-footer d-flex gap-2 flex-wrap">
+        <a href="{% url 'quotation_create' project.pk %}" class="btn btn-sm btn-primary">
+          <i class="fa fa-file-invoice me-1"></i> Create Quotation
+        </a>
+        <a href="{% url 'job_create' project.pk %}" class="btn btn-sm btn-gold">
+          <i class="fa fa-industry me-1"></i> New Production Job
+        </a>
+        {% if not project.is_locked and user.profile.is_admin %}
+        <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#lockModal">
+          <i class="fa fa-lock me-1"></i> Lock Project
+        </button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header"><i class="fa fa-chart-bar me-2"></i>Summary</div>
+      <div class="card-body">
+        <p class="mb-1"><strong>Measurements:</strong> {{ measurements|length }}</p>
+        <p class="mb-1"><strong>Quotations:</strong> {{ project.quotations.count }}</p>
+        <p class="mb-1"><strong>Production Jobs:</strong> {{ project.production_jobs.count }}</p>
+        <p class="mb-1"><strong>Total Area:</strong>
+          {% with total=0 %}
+          {% for m in measurements %}{% if forloop.first %}{% endif %}{% endfor %}
+          {{ measurements|length }} items
+          {% endwith %}
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Measurements Table -->
+<div class="card mb-3 shadow-sm border-0">
+  <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+    <span class="fw-bold"><i class="fa fa-ruler-combined me-2 text-primary"></i>Measurements / Items</span>
+    {% if not project.is_locked %}
+    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addMeasModal">
+      <i class="fa fa-plus me-1"></i> Add Item
+    </button>
+    {% endif %}
+  </div>
+  <div class="card-body p-4 bg-light">
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+      {% for m in measurements %}
+      <div class="col">
+        <div class="card h-100 shadow-sm border-0 item-card overflow-hidden">
+          <div class="card-header bg-white border-bottom-0 d-flex justify-content-between align-items-center pt-3 pb-0">
+            <h5 class="mb-0 fw-bold text-dark">{{ m.reference }} <span class="badge bg-secondary ms-1 fw-normal fs-6 align-middle">{{ m.line_no }}</span></h5>
+            {% if not project.is_locked %}
+            <button class="btn btn-sm text-muted p-0" onclick="editMeasurement({{ m.pk }}, {{ m.reference|json_script:'ref'|safe }})">
+              <i class="fa fa-edit"></i>
+            </button>
+            {% endif %}
+          </div>
+          
+          <div class="card-body d-flex flex-column align-items-center justify-content-center p-4">
+            <!-- Visualization Container -->
+            <div class="window-visualizer w-100 d-flex justify-content-center align-items-center"
+                 style="height: 180px;"
+                 data-width="{{ m.effective_width }}"
+                 data-height="{{ m.effective_height }}"
+                 data-panels="{{ m.n_panels }}"
+                 data-system="{{ m.system.category }}"
+                 data-hinge="{{ m.hinge_side|default:'' }}"
+                 data-color="{{ m.color.code|default:'#8B5A2B' }}"> <!-- Default frame color if none -->
+                 <!-- SVG will be injected here -->
+            </div>
+            <div class="text-center mt-3 small fw-bold text-muted font-monospace bg-light px-3 py-1 rounded-pill">
+              {{ m.effective_width }}W × {{ m.effective_height }}H mm
+            </div>
+          </div>
+          
+          <ul class="list-group list-group-flush small border-top">
+            <li class="list-group-item d-flex justify-content-between px-3 py-2">
+              <span class="text-muted"><i class="fa fa-map-marker-alt me-2 text-primary"></i>Location</span>
+              <span class="fw-medium text-end">{{ m.location }}</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between px-3 py-2">
+              <span class="text-muted"><i class="fa fa-layer-group me-2 text-primary"></i>System</span>
+              <span class="fw-medium text-end text-truncate ms-2" style="max-width: 60%;" title="{{ m.system.name }}">{{ m.system.name }}</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between px-3 py-2">
+              <span class="text-muted"><i class="fa fa-hashtag me-2 text-primary"></i>Qty / Area</span>
+              <span class="fw-medium text-end">{{ m.qty }} <span class="text-muted mx-1">|</span> {{ m.area_sqft }} sqft</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between px-3 py-2 bg-light">
+              <span class="text-muted"><i class="fa fa-check-circle me-2 text-primary"></i>Confirmed</span>
+              <span>
+                {% if m.dimensions_confirmed %}
+                <i class="fa fa-check-circle text-success fs-5"></i>
+                {% else %}
+                <i class="fa fa-clock text-warning fs-5"></i>
+                {% endif %}
+              </span>
+            </li>
+          </ul>
+        </div>
+      </div>
+      {% empty %}
+      <div class="col-12">
+        <div class="text-center text-muted py-5 bg-white rounded-3 shadow-sm border border-2 border-dashed">
+          <i class="fa fa-ruler-combined fa-4x mb-3 text-secondary opacity-50"></i>
+          <h4 class="fw-bold text-dark">No measurements added yet</h4>
+          <p class="mb-3">Click 'Add Item' to start adding windows and doors to this project.</p>
+          {% if not project.is_locked %}
+          <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addMeasModal">
+            <i class="fa fa-plus me-1"></i> Add First Item
+          </button>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Quotations -->
+{% if project.quotations.exists %}
+<div class="card mb-3">
+  <div class="card-header"><i class="fa fa-file-invoice me-2"></i>Quotations</div>
+  <div class="card-body p-0">
+    <table class="table mb-0">
+      <thead><tr><th>Quote No.</th><th>Status</th><th>Date</th><th>Valid Until</th><th></th></tr></thead>
+      <tbody>
+        {% for q in project.quotations.all %}
+        <tr>
+          <td><strong>{{ q.quote_no }}</strong>/Rev{{ q.revision }}</td>
+          <td><span class="badge bg-secondary">{{ q.get_status_display }}</span></td>
+          <td>{{ q.quote_date|date:"d M Y" }}</td>
+          <td>{{ q.valid_until|date:"d M Y"|default:"—" }}</td>
+          <td><a href="{% url 'quotation_detail' q.pk %}" class="btn btn-sm btn-outline-primary">Open</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Add Measurement Modal -->
+<div class="modal fade" id="addMeasModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background:var(--cf-dark);color:#fff;">
+        <h5 class="modal-title">Add Measurement</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'measurement_add' project.pk %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Reference <span class="text-danger">*</span></label>
+              <input type="text" name="reference" class="form-control" placeholder="W1, D1..." required>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Location <span class="text-danger">*</span></label>
+              <input type="text" name="location" class="form-control" placeholder="Living Room, Kitchen..." required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">System <span class="text-danger">*</span></label>
+              <select name="system" class="form-select" required>
+                {% for s in systems %}<option value="{{ s.pk }}">{{ s.name }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Width (mm) <span class="text-danger">*</span></label>
+              <input type="number" name="width" class="form-control" required min="100">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Height (mm) <span class="text-danger">*</span></label>
+              <input type="number" name="height" class="form-control" required min="100">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Qty</label>
+              <input type="number" name="qty" class="form-control" value="1" min="1">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Panels</label>
+              <input type="number" name="n_panels" class="form-control" value="1" min="1">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Hinge Side</label>
+              <select name="hinge_side" class="form-select">
+                <option value="">N/A</option>
+                <option value="L">Left</option>
+                <option value="R">Right</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Glass</label>
+              <select name="glass" class="form-select">
+                <option value="">— Select Glass —</option>
+                {% for g in glasses %}<option value="{{ g.pk }}">{{ g.name }} ({{ g.thickness }})</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Color</label>
+              <select name="color" class="form-select">
+                <option value="">— Select Color —</option>
+                {% for c in colors %}<option value="{{ c.pk }}">{{ c.name }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Description</label>
+              <input type="text" name="description" class="form-control" placeholder="e.g. Casement FO/L.R, Bay 3 Facet">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Notes</label>
+              <textarea name="notes" class="form-control" rows="2"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Measurement</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Lock Modal -->
+<div class="modal fade" id="lockModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title"><i class="fa fa-lock me-2"></i>Lock Project</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'project_lock' project.pk %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <p class="text-danger">Locking will <strong>prevent all editing</strong>. Only admin can unlock.</p>
+          <label class="form-label">Reason</label>
+          <input type="text" name="reason" class="form-control" value="Production approved">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger">Lock Project</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const containers = document.querySelectorAll('.window-visualizer');
+    
+    containers.forEach(container => {
+        const w = parseFloat(container.dataset.width);
+        const h = parseFloat(container.dataset.height);
+        const panels = parseInt(container.dataset.panels) || 1;
+        const system = container.dataset.system;
+        const hinge = container.dataset.hinge;
+        let colorCode = container.dataset.color || '#6c757d'; 
+        
+        // Basic color mapping if the code is just a name
+        if (!colorCode.startsWith('#') && !colorCode.startsWith('rgb')) {
+            const colors = {
+                'white': '#f8f9fa', 'black': '#212529', 'brown': '#5c4033', 
+                'grey': '#6c757d', 'silver': '#ced4da', 'champagne': '#F7E7CE'
+            };
+            colorCode = colors[colorCode.toLowerCase()] || '#8B5A2B'; 
+        }
+
+        // SVG Dimensions setup
+        const maxDisplaySize = 160; 
+        const aspectRatio = w / h;
+        
+        let svgW, svgH;
+        if (aspectRatio > 1) {
+            svgW = maxDisplaySize;
+            svgH = maxDisplaySize / aspectRatio;
+        } else {
+            svgH = maxDisplaySize;
+            svgW = maxDisplaySize * aspectRatio;
+        }
+        
+        // Frame thickness (scaled proportionally)
+        const frameT = Math.max(svgW, svgH) * 0.08; 
+        
+        let svgContent = `<svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">`;
+        
+        // Define markers (arrows) for sliding
+        svgContent += `
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#666" />
+          </marker>
+          <marker id="arrow-start" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+            <path d="M 10 0 L 0 5 L 10 10 z" fill="#666" />
+          </marker>
+        </defs>`;
+
+        // Outer Frame
+        svgContent += `<rect x="0" y="0" width="${svgW}" height="${svgH}" fill="${colorCode}" stroke="#333" stroke-width="1" rx="2"/>`;
+        
+        // Inner opening
+        svgContent += `<rect x="${frameT}" y="${frameT}" width="${svgW - 2*frameT}" height="${svgH - 2*frameT}" fill="#e9ecef" stroke="#333" stroke-width="1"/>`;
+        
+        // Panels
+        const innerW = svgW - 2*frameT;
+        const innerH = svgH - 2*frameT;
+        const panelW = innerW / panels;
+        
+        for (let i = 0; i < panels; i++) {
+            const px = frameT + i * panelW;
+            const py = frameT;
+            
+            // Draw sash frame for each panel
+            const sashT = frameT * 0.8;
+            svgContent += `<rect x="${px}" y="${py}" width="${panelW}" height="${innerH}" fill="none" stroke="${colorCode}" stroke-width="${sashT}"/>`;
+            
+            // Draw glass reflection
+            const glassX = px + sashT/2;
+            const glassY = py + sashT/2;
+            const glassW = panelW - sashT;
+            const glassH = innerH - sashT;
+            
+            svgContent += `<polygon points="${glassX + glassW*0.2},${glassY + glassH*0.8} ${glassX + glassW*0.8},${glassY + glassH*0.2} ${glassX + glassW*0.9},${glassY + glassH*0.2} ${glassX + glassW*0.3},${glassY + glassH*0.8}" fill="rgba(255,255,255,0.5)" />`;
+            
+            // Opening indicators
+            if (system === 'sliding' || system === 'door_sliding') {
+                const cy = py + innerH/2;
+                const arrowLen = Math.min(panelW * 0.4, 20);
+                svgContent += `<line x1="${px + panelW/2 - arrowLen/2}" y1="${cy}" x2="${px + panelW/2 + arrowLen/2}" y2="${cy}" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)" marker-start="url(#arrow-start)"/>`;
+            } else if (system === 'casement' || system === 'door_swing') {
+                let hX1 = px; // Left edge
+                let hX2 = px + panelW; // Right edge
+                
+                if (hinge === 'L' || (!hinge && i%2 === 0)) {
+                    // Points left
+                    svgContent += `<polyline points="${hX2},${py} ${hX1},${py + innerH/2} ${hX2},${py + innerH}" fill="none" stroke="#666" stroke-width="1.5" stroke-dasharray="2,2" />`;
+                } else if (hinge === 'R' || (!hinge && i%2 !== 0)) {
+                    // Points right
+                    svgContent += `<polyline points="${hX1},${py} ${hX2},${py + innerH/2} ${hX1},${py + innerH}" fill="none" stroke="#666" stroke-width="1.5" stroke-dasharray="2,2" />`;
+                }
+            }
+        }
+        
+        svgContent += `</svg>`;
+        container.innerHTML = svgContent;
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base/base.html" %}
+{% block title %}Profiles{% endblock %}
+{% block page_title %}Profile Catalog{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between">
+    <span><i class="fa fa-bars me-2"></i>Profiles</span>
+    <a href="/admin/catalog/profile/add/" class="btn btn-sm btn-outline-light">+ Add</a>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Stock No.</th><th>Name</th><th>Category</th><th>Bar Length (mm)</th><th>Weight (kg/m)</th><th>Cost (₹/m)</th><th>Formulas</th></tr></thead>
+      <tbody>
+        {% for p in profiles %}
+        <tr>
+          <td><strong>{{ p.stock_no }}</strong></td>
+          <td>{{ p.name }}</td>
+          <td><span class="badge bg-secondary">{{ p.get_category_display }}</span></td>
+          <td>{{ p.standard_bar_length }}</td>
+          <td>{{ p.weight_per_meter }}</td>
+          <td>₹ {{ p.cost_per_meter }}</td>
+          <td>{{ p.formulas.count }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">No profiles. <a href="/admin/catalog/profile/add/">Add via Admin</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

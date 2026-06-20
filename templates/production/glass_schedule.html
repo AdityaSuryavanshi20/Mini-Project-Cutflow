@@ -1,0 +1,31 @@
+{% extends "base/base.html" %}
+{% block title %}Glass Schedule{% endblock %}
+{% block page_title %}Glass Schedule – {{ job.job_no }}{% endblock %}
+{% block nav_jobs %}active{% endblock %}
+{% block content %}
+<a href="{% url 'job_detail' job.pk %}" class="btn btn-sm btn-outline-secondary mb-3">← Back to Job</a>
+<div class="card">
+  <div class="card-header">Glass Schedule – {{ job.project.customer.name }}</div>
+  <div class="card-body p-0">
+    <table class="table mb-0">
+      <thead><tr><th>Line</th><th>Ref / Location</th><th>Glass Type</th><th>W (mm)</th><th>H (mm)</th><th>Qty</th><th>Area (sqft)</th><th>Toughened</th></tr></thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td>{{ item.line_no }}</td>
+          <td>{{ item.reference }}<br><small class="text-muted">{{ item.location }}</small></td>
+          <td>{{ item.glass.name }} ({{ item.glass.thickness }})</td>
+          <td>{{ item.width }}</td>
+          <td>{{ item.height }}</td>
+          <td>{{ item.qty }}</td>
+          <td>{{ item.area_sqft|floatformat:2 }}</td>
+          <td>{% if item.glass.is_toughened %}<i class="fa fa-check text-success"></i>{% else %}—{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-center text-muted py-4">No glass items.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
