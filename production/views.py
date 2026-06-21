@@ -7,6 +7,7 @@ from django.db import transaction
 from .models import ProductionJob, ProductionItem, ProductionCutItem, OptimizationRun, ReusableOffcut
 from .models import ProductionJobStatus
 from projects.models import Project
+from projects.views import _is_admin
 from .services import generate_production_items, run_optimization
 from quotations.pdf_generator import generate_cutting_list_pdf
 
@@ -20,6 +21,17 @@ def _next_job_no():
     except Exception:
         num = 1
     return f'J{num:05d}'
+
+
+def _parse_positive_int_or_none(raw):
+    """Best-effort parse of a positive int from a GET/POST value, or None."""
+    if raw is None or str(raw).strip() == '':
+        return None
+    try:
+        value = int(str(raw).strip())
+    except (ValueError, TypeError):
+        return None
+    return value if value > 0 else None
 
 
 @login_required
@@ -68,7 +80,7 @@ def job_detail(request, pk):
 @login_required
 def generate_items(request, pk):
     job = get_object_or_404(ProductionJob, pk=pk)
-    if not job.project.can_edit(request.user) and not request.user.profile.is_admin:
+    if not job.project.can_edit(request.user) and not _is_admin(request.user):
         messages.error(request, 'Access denied.')
         return redirect('job_detail', pk=pk)
     try:
@@ -173,8 +185,10 @@ def offcut_inventory(request):
     from catalog.models import Profile
 
     offcuts = ReusableOffcut.objects.select_related('profile', 'source_job', 'used_in_job')
-    profile_id = request.GET.get('profile')
+    profile_id = _parse_positive_int_or_none(request.GET.get('profile'))
     status = request.GET.get('status', 'available')
+    if status not in ('available', 'used', 'all'):
+        status = 'available'
 
     if profile_id:
         offcuts = offcuts.filter(profile_id=profile_id)
@@ -188,7 +202,7 @@ def offcut_inventory(request):
     return render(request, 'production/offcut_inventory.html', {
         'offcuts': offcuts,
         'profiles': profiles,
-        'selected_profile': int(profile_id) if profile_id else None,
+        'selected_profile': profile_id,
         'selected_status': status,
     })
 

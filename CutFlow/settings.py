@@ -82,7 +82,7 @@ else:
             'ENGINE': 'django.db.backends.mysql',
             'NAME': os.environ.get('DB_NAME', 'cutflow_db'),
             'USER': os.environ.get('DB_USER', 'cutflow_user'),
-            'PASSWORD': os.environ.get('DB_PASSWORD', 'Aniket@109'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
             'HOST': os.environ.get('DB_HOST', 'localhost'),
             'PORT': os.environ.get('DB_PORT', '3306'),
             'OPTIONS': {
@@ -91,6 +91,13 @@ else:
             },
         }
     }
+    if not os.environ.get('DB_PASSWORD'):
+        import warnings
+        warnings.warn(
+            'DB_PASSWORD is not set in the environment/.env file. '
+            'Set USE_SQLITE=True for local development, or provide DB_PASSWORD for MySQL.',
+            RuntimeWarning,
+        )
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},

@@ -25,6 +25,25 @@ def _next_quote_no():
     return f'Q{num:05d}'
 
 
+def _parse_nonneg_decimal(raw, default, field_label, errors):
+    """
+    Parse a POSTed value into a non-negative Decimal, falling back to
+    `default` and recording a message in `errors` if the value is missing,
+    not a valid number, or negative. Never raises.
+    """
+    if raw is None or str(raw).strip() == '':
+        return Decimal(str(default))
+    try:
+        value = Decimal(str(raw).strip())
+    except (InvalidOperation, ValueError, TypeError):
+        errors.append(f'{field_label} must be a number; kept previous value.')
+        return Decimal(str(default))
+    if value < 0:
+        errors.append(f'{field_label} cannot be negative; kept previous value.')
+        return Decimal(str(default))
+    return value
+
+
 @login_required
 def quotation_list(request):
     qs = Quotation.objects.select_related('project__customer', 'salesman').all()
@@ -105,20 +124,49 @@ def quotation_update_pricing(request, pk):
         return redirect('quotation_detail', pk=pk)
 
     if request.method == 'POST':
+        errors = []
+
         quote.quote_type = request.POST.get('quote_type', quote.quote_type)
-        quote.pricing_variant = request.POST.get('pricing_variant', quote.pricing_variant)
-        quote.installation_type = request.POST.get('installation_type', 'percent')
-        quote.installation_value = request.POST.get('installation_value', 0) or 0
-        quote.freight = request.POST.get('freight', 0) or 0
-        quote.lifting_charges = request.POST.get('lifting_charges', 0) or 0
-        quote.discount_type = request.POST.get('discount_type', 'percent')
-        quote.discount_value = request.POST.get('discount_value', 0) or 0
+        if quote.quote_type not in QuotationType.values:
+            quote.quote_type = QuotationType.TENTATIVE
+            errors.append('Invalid quote type; defaulted to Tentative.')
+
+        pricing_variant = request.POST.get('pricing_variant', quote.pricing_variant)
+        valid_variants = {choice[0] for choice in Quotation._meta.get_field('pricing_variant').choices}
+        quote.pricing_variant = pricing_variant if pricing_variant in valid_variants else quote.pricing_variant
+
+        installation_type = request.POST.get('installation_type', quote.installation_type)
+        valid_installation_types = {choice[0] for choice in Quotation._meta.get_field('installation_type').choices}
+        quote.installation_type = (
+            installation_type if installation_type in valid_installation_types else 'percent'
+        )
+
+        discount_type = request.POST.get('discount_type', quote.discount_type)
+        valid_discount_types = {choice[0] for choice in Quotation._meta.get_field('discount_type').choices}
+        quote.discount_type = discount_type if discount_type in valid_discount_types else 'percent'
+
+        quote.installation_value = _parse_nonneg_decimal(
+            request.POST.get('installation_value'), quote.installation_value, 'Installation value', errors)
+        quote.freight = _parse_nonneg_decimal(
+            request.POST.get('freight'), quote.freight, 'Freight', errors)
+        quote.lifting_charges = _parse_nonneg_decimal(
+            request.POST.get('lifting_charges'), quote.lifting_charges, 'Lifting charges', errors)
+        quote.discount_value = _parse_nonneg_decimal(
+            request.POST.get('discount_value'), quote.discount_value, 'Discount value', errors)
+        if quote.discount_type == 'percent' and quote.discount_value > 100:
+            errors.append('Discount percentage cannot exceed 100%; capped at 100%.')
+            quote.discount_value = Decimal('100')
+
         quote.apply_sgst = bool(request.POST.get('apply_sgst'))
         quote.apply_cgst = bool(request.POST.get('apply_cgst'))
         quote.apply_igst = bool(request.POST.get('apply_igst'))
-        quote.sgst_rate = request.POST.get('sgst_rate', 9) or 9
-        quote.cgst_rate = request.POST.get('cgst_rate', 9) or 9
-        quote.igst_rate = request.POST.get('igst_rate', 18) or 18
+        quote.sgst_rate = _parse_nonneg_decimal(
+            request.POST.get('sgst_rate'), quote.sgst_rate, 'SGST rate', errors)
+        quote.cgst_rate = _parse_nonneg_decimal(
+            request.POST.get('cgst_rate'), quote.cgst_rate, 'CGST rate', errors)
+        quote.igst_rate = _parse_nonneg_decimal(
+            request.POST.get('igst_rate'), quote.igst_rate, 'IGST rate', errors)
+
         quote.payment_terms = request.POST.get('payment_terms', '')
         quote.notes = request.POST.get('notes', '')
         quote.save()
@@ -128,13 +176,20 @@ def quotation_update_pricing(request, pk):
             manual_rate = request.POST.get(rate_key)
             if manual_rate:
                 try:
-                    item.unit_rate = Decimal(str(manual_rate))
-                    item.save(update_fields=['unit_rate'])
+                    rate = Decimal(str(manual_rate))
+                    if rate < 0:
+                        errors.append(f'Rate for item {item.reference or item.line_no} cannot be negative; ignored.')
+                    else:
+                        item.unit_rate = rate
+                        item.save(update_fields=['unit_rate'])
                 except (ValueError, TypeError, InvalidOperation):
-                    pass
+                    errors.append(f'Rate for item {item.reference or item.line_no} was not a valid number; ignored.')
             else:
                 item.refresh_pricing()
 
+        if errors:
+            for err in errors:
+                messages.warning(request, err)
         messages.success(request, 'Quotation pricing updated.')
     return redirect('quotation_detail', pk=pk)
 

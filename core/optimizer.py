@@ -319,7 +319,23 @@ def optimize_cuts(
     profile. When multiple lengths are available, the smallest length that
     still fits the next pending cuts with minimal leftover is chosen for
     each new bar.
+
+    Raises ValueError if any cut_request has a non-positive length or qty,
+    since such values would silently corrupt bar-packing and utilisation
+    calculations downstream.
     """
+    for request in cut_requests:
+        if request.length <= 0:
+            raise ValueError(
+                f"Cut request for profile {request.profile_stock_no} has a non-positive "
+                f"length ({request.length}mm); refusing to optimize invalid cut data."
+            )
+        if request.qty <= 0:
+            raise ValueError(
+                f"Cut request for profile {request.profile_stock_no} has a non-positive "
+                f"quantity ({request.qty}); refusing to optimize invalid cut data."
+            )
+
     profile_groups: Dict[int, List[CutRequest]] = {}
     for request in cut_requests:
         profile_groups.setdefault(request.profile_id, []).append(request)

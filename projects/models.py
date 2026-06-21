@@ -78,6 +78,8 @@ class Project(models.Model):
 
     def can_edit(self, user):
         if self.is_locked:
+            if user.is_superuser:
+                return True
             return hasattr(user, 'profile') and user.profile.is_admin
         return True
 
