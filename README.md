@@ -31,8 +31,46 @@ CutFlow/
 
 ```
 Python 3.10+
-MySQL 8.0+
+MySQL 8.0+   (optional — see Quick Start below for SQLite)
 ```
+
+---
+
+## Quick Start (SQLite, no MySQL needed)
+
+The fastest way to try CutFlow locally — uses Django's built-in SQLite, no database server required.
+
+```bash
+cd CutFlow
+python -m venv venv
+source venv/bin/activate          # Linux/Mac
+# venv\Scripts\activate           # Windows
+
+pip install -r requirements.txt
+```
+
+If that fails while building `mysqlclient` (it needs MySQL/MariaDB dev headers that most machines don't have installed by default), and you only want SQLite for now, install everything else and skip that one line:
+
+```bash
+grep -v mysqlclient requirements.txt > requirements-sqlite.txt
+pip install -r requirements-sqlite.txt
+```
+
+You can add MySQL support later by installing the [system headers for your OS](https://pypi.org/project/mysqlclient/) and then `pip install mysqlclient`.
+
+```bash
+export USE_SQLITE=True            # Windows (cmd): set USE_SQLITE=True
+python manage.py migrate
+python manage.py seed_data
+python manage.py createsuperuser
+python manage.py runserver
+```
+
+Visit **http://127.0.0.1:8000/** and log in with the superuser you just created. This is fine for local development and testing; for a real deployment, switch to MySQL using the steps below and drop `USE_SQLITE` from your environment.
+
+---
+
+## Full Installation (MySQL)
 
 ---
 
@@ -96,9 +134,7 @@ python manage.py migrate
 ```bash
 python manage.py createsuperuser
 ```
-Enter username, email, password. This user gets admin access automatically via Django admin.
-
-**Then set their role** – go to `/admin/accounts/userprofile/` and set role = `admin`.
+Enter username, email, password. This user automatically gets `role = admin` on their profile (superusers are treated as admin throughout the app), so no extra setup is needed before logging in.
 
 ### 6. Seed Initial Catalog Data
 
