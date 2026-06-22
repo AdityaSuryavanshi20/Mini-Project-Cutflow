@@ -85,7 +85,7 @@
   <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
     <span class="fw-bold"><i class="fa fa-ruler-combined me-2 text-primary"></i>Measurements / Items</span>
     {% if not project.is_locked %}
-    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addMeasModal">
+    <button class="btn btn-sm btn-primary add-meas-trigger-btn" data-bs-toggle="modal" data-bs-target="#addMeasModal">
       <i class="fa fa-plus me-1"></i> Add Item
     </button>
     {% endif %}
@@ -98,7 +98,21 @@
           <div class="card-header bg-white border-bottom-0 d-flex justify-content-between align-items-center pt-3 pb-0">
             <h5 class="mb-0 fw-bold text-dark">{{ m.reference }} <span class="badge bg-secondary ms-1 fw-normal fs-6 align-middle">{{ m.line_no }}</span></h5>
             {% if not project.is_locked %}
-            <button class="btn btn-sm text-muted p-0" onclick="editMeasurement({{ m.pk }}, {{ m.reference|json_script:'ref'|safe }})">
+            <button type="button" class="btn btn-sm text-muted p-0 edit-meas-btn"
+                    data-pk="{{ m.pk }}"
+                    data-reference="{{ m.reference }}"
+                    data-location="{{ m.location }}"
+                    data-system="{{ m.system_id|default:'' }}"
+                    data-width="{{ m.width }}"
+                    data-height="{{ m.height }}"
+                    data-qty="{{ m.qty }}"
+                    data-n-panels="{{ m.n_panels }}"
+                    data-hinge-side="{{ m.hinge_side|default:'' }}"
+                    data-glass="{{ m.glass_id|default:'' }}"
+                    data-color="{{ m.color_id|default:'' }}"
+                    data-description="{{ m.description|default:'' }}"
+                    data-notes="{{ m.notes|default:'' }}"
+                    data-dimensions-confirmed="{{ m.dimensions_confirmed|yesno:'1,0' }}">
               <i class="fa fa-edit"></i>
             </button>
             {% endif %}
@@ -154,7 +168,7 @@
           <h4 class="fw-bold text-dark">No measurements added yet</h4>
           <p class="mb-3">Click 'Add Item' to start adding windows and doors to this project.</p>
           {% if not project.is_locked %}
-          <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addMeasModal">
+          <button class="btn btn-primary add-meas-trigger-btn" data-bs-toggle="modal" data-bs-target="#addMeasModal">
             <i class="fa fa-plus me-1"></i> Add First Item
           </button>
           {% endif %}
@@ -193,46 +207,46 @@
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header" style="background:var(--cf-dark);color:#fff;">
-        <h5 class="modal-title">Add Measurement</h5>
+        <h5 class="modal-title" id="measModalTitle">Add Measurement</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <form method="post" action="{% url 'measurement_add' project.pk %}">
+      <form method="post" id="measForm" action="{% url 'measurement_add' project.pk %}">
         {% csrf_token %}
         <div class="modal-body">
           <div class="row g-3">
             <div class="col-md-3">
               <label class="form-label">Reference <span class="text-danger">*</span></label>
-              <input type="text" name="reference" class="form-control" placeholder="W1, D1..." required>
+              <input type="text" name="reference" id="meas-reference" class="form-control" placeholder="W1, D1..." required>
             </div>
             <div class="col-md-5">
               <label class="form-label">Location <span class="text-danger">*</span></label>
-              <input type="text" name="location" class="form-control" placeholder="Living Room, Kitchen..." required>
+              <input type="text" name="location" id="meas-location" class="form-control" placeholder="Living Room, Kitchen..." required>
             </div>
             <div class="col-md-4">
               <label class="form-label">System <span class="text-danger">*</span></label>
-              <select name="system" class="form-select" required>
+              <select name="system" id="meas-system" class="form-select" required>
                 {% for s in systems %}<option value="{{ s.pk }}">{{ s.name }}</option>{% endfor %}
               </select>
             </div>
             <div class="col-md-3">
               <label class="form-label">Width (mm) <span class="text-danger">*</span></label>
-              <input type="number" name="width" class="form-control" required min="100">
+              <input type="number" name="width" id="meas-width" class="form-control" required min="100">
             </div>
             <div class="col-md-3">
               <label class="form-label">Height (mm) <span class="text-danger">*</span></label>
-              <input type="number" name="height" class="form-control" required min="100">
+              <input type="number" name="height" id="meas-height" class="form-control" required min="100">
             </div>
             <div class="col-md-2">
               <label class="form-label">Qty</label>
-              <input type="number" name="qty" class="form-control" value="1" min="1">
+              <input type="number" name="qty" id="meas-qty" class="form-control" value="1" min="1">
             </div>
             <div class="col-md-2">
               <label class="form-label">Panels</label>
-              <input type="number" name="n_panels" class="form-control" value="1" min="1">
+              <input type="number" name="n_panels" id="meas-n-panels" class="form-control" value="1" min="1">
             </div>
             <div class="col-md-2">
               <label class="form-label">Hinge Side</label>
-              <select name="hinge_side" class="form-select">
+              <select name="hinge_side" id="meas-hinge-side" class="form-select">
                 <option value="">N/A</option>
                 <option value="L">Left</option>
                 <option value="R">Right</option>
@@ -240,31 +254,37 @@
             </div>
             <div class="col-md-5">
               <label class="form-label">Glass</label>
-              <select name="glass" class="form-select">
+              <select name="glass" id="meas-glass" class="form-select">
                 <option value="">— Select Glass —</option>
                 {% for g in glasses %}<option value="{{ g.pk }}">{{ g.name }} ({{ g.thickness }})</option>{% endfor %}
               </select>
             </div>
             <div class="col-md-4">
               <label class="form-label">Color</label>
-              <select name="color" class="form-select">
+              <select name="color" id="meas-color" class="form-select">
                 <option value="">— Select Color —</option>
                 {% for c in colors %}<option value="{{ c.pk }}">{{ c.name }}</option>{% endfor %}
               </select>
             </div>
             <div class="col-12">
               <label class="form-label">Description</label>
-              <input type="text" name="description" class="form-control" placeholder="e.g. Casement FO/L.R, Bay 3 Facet">
+              <input type="text" name="description" id="meas-description" class="form-control" placeholder="e.g. Casement FO/L.R, Bay 3 Facet">
             </div>
             <div class="col-12">
               <label class="form-label">Notes</label>
-              <textarea name="notes" class="form-control" rows="2"></textarea>
+              <textarea name="notes" id="meas-notes" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+              <div class="form-check">
+                <input type="checkbox" name="dimensions_confirmed" id="meas-dimensions-confirmed" class="form-check-input" value="1">
+                <label class="form-check-label" for="meas-dimensions-confirmed">Dimensions confirmed</label>
+              </div>
             </div>
           </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary">Add Measurement</button>
+          <button type="submit" class="btn btn-primary" id="measSubmitBtn">Add Measurement</button>
         </div>
       </form>
     </div>
@@ -393,6 +413,52 @@ document.addEventListener('DOMContentLoaded', function() {
         
         svgContent += `</svg>`;
         container.innerHTML = svgContent;
+    });
+
+    // --- Measurement Add/Edit modal wiring ---
+    const measForm = document.getElementById('measForm');
+    const measModalTitle = document.getElementById('measModalTitle');
+    const measSubmitBtn = document.getElementById('measSubmitBtn');
+    const addMeasUrl = "{% url 'measurement_add' project.pk %}";
+
+    function resetMeasFormToAddMode() {
+        measForm.action = addMeasUrl;
+        measModalTitle.textContent = 'Add Measurement';
+        measSubmitBtn.textContent = 'Add Measurement';
+        measForm.reset();
+    }
+
+    document.querySelectorAll('.add-meas-trigger-btn').forEach(function(btn) {
+        btn.addEventListener('click', resetMeasFormToAddMode);
+    });
+
+    document.querySelectorAll('.edit-meas-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const d = btn.dataset;
+
+            // Build the edit URL by substituting the pk into the URL pattern.
+            measForm.action = "{% url 'measurement_edit' 0 %}".replace('/0/', '/' + d.pk + '/');
+            measModalTitle.textContent = 'Edit Measurement';
+            measSubmitBtn.textContent = 'Save Changes';
+
+            document.getElementById('meas-reference').value = d.reference || '';
+            document.getElementById('meas-location').value = d.location || '';
+            document.getElementById('meas-system').value = d.system || '';
+            document.getElementById('meas-width').value = d.width || '';
+            document.getElementById('meas-height').value = d.height || '';
+            document.getElementById('meas-qty').value = d.qty || 1;
+            document.getElementById('meas-n-panels').value = d.nPanels || 1;
+            document.getElementById('meas-hinge-side').value = d.hingeSide || '';
+            document.getElementById('meas-glass').value = d.glass || '';
+            document.getElementById('meas-color').value = d.color || '';
+            document.getElementById('meas-description').value = d.description || '';
+            document.getElementById('meas-notes').value = d.notes || '';
+            document.getElementById('meas-dimensions-confirmed').checked = d.dimensionsConfirmed === '1';
+
+            const modalEl = document.getElementById('addMeasModal');
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        });
     });
 });
 </script>

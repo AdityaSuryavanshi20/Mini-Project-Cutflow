@@ -154,6 +154,12 @@ def compute_cuts_for_item(production_item: ProductionItem) -> Tuple[list, list]:
             )
             continue
 
+        # Multiply by the measurement's ordered quantity (number of identical
+        # window/door units on this line). Without this, a line ordered with
+        # qty=2 (or more) only ever produces the cut pieces for a single unit,
+        # silently shorting every profile on the cutting list for that item.
+        total_quantity = int(round(quantity)) * int(m.qty)
+
         position_code = _normalize_position_code(
             formula.system_profile.role if formula.system_profile else None,
             formula.position,
@@ -164,7 +170,7 @@ def compute_cuts_for_item(production_item: ProductionItem) -> Tuple[list, list]:
             'cut_length_mm': int(round(length)),
             'left_angle': float(formula.cut_angle_left),
             'right_angle': float(formula.cut_angle_right),
-            'quantity': int(round(quantity)),
+            'quantity': total_quantity,
             'position_code': position_code[:20],
         })
 
