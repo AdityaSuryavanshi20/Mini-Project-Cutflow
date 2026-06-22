@@ -329,9 +329,33 @@ python manage.py seed_data
 # Run dev server
 python manage.py runserver
 
+# Run the test suite (all apps)
+python manage.py test
+
+# Run tests for a single app, e.g. just the optimizer
+python manage.py test core
+
+# Re-use the test database between runs for faster iteration
+python manage.py test --keepdb
+
 # Collect static (production)
 python manage.py collectstatic --noinput
 
 # Shell for debugging
 python manage.py shell
 ```
+
+## Test Suite
+
+Each app has a `tests.py` covering its critical paths: `core/tests.py` for
+the bar-cutting optimizer (the highest-stakes module — bugs there produce
+wrong cutting lists), `quotations/tests.py` for the pricing cascade and the
+pricing-update form's input validation, `projects/tests.py` for measurement
+input validation and the lock/unlock permission logic, `production/tests.py`
+for offcut inventory and production-item generation, and `accounts/tests.py`
+for login and profile handling.
+
+Run `python manage.py test` before deploying any change to these areas —
+especially `core/optimizer.py` and `quotations/models.py`, where a silent
+regression would produce a wrong cutting list or a wrong customer quote
+rather than an obvious crash.

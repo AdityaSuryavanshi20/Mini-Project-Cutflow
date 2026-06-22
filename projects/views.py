@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from django.db import transaction
 from .models import Customer, Project, MeasurementItem, ProjectStatus, ProjectStatusHistory
 from catalog.models import System, Color, Glass
+from core.decorators import role_required
 import json
 
 
@@ -50,7 +51,7 @@ def _parse_positive_int(raw, default, field_label, errors, allow_none=False):
     return value
 
 
-@login_required
+@role_required('viewer', 'salesman', 'production', 'admin')
 def customer_list(request):
     qs = Customer.objects.all()
     q = request.GET.get('q', '')
@@ -59,7 +60,7 @@ def customer_list(request):
     return render(request, 'projects/customer_list.html', {'customers': qs, 'q': q})
 
 
-@login_required
+@role_required('salesman', 'admin')
 def customer_create(request):
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
@@ -84,7 +85,7 @@ def customer_create(request):
     return render(request, 'projects/customer_form.html', {'action': 'Create'})
 
 
-@login_required
+@role_required('viewer', 'salesman', 'production', 'admin')
 def customer_detail(request, pk):
     customer = get_object_or_404(Customer, pk=pk)
     projects = customer.projects.all()
@@ -92,7 +93,7 @@ def customer_detail(request, pk):
                   {'customer': customer, 'projects': projects})
 
 
-@login_required
+@role_required('viewer', 'salesman', 'production', 'admin')
 def project_list(request):
     qs = Project.objects.select_related('customer', 'salesman').all()
     status_filter = request.GET.get('status', '')
@@ -105,7 +106,7 @@ def project_list(request):
     })
 
 
-@login_required
+@role_required('salesman', 'admin')
 def project_create(request):
     if request.method == 'POST':
         ref = request.POST.get('reference', '').strip()
@@ -147,7 +148,7 @@ def project_create(request):
         'action': 'Create', 'customers': Customer.objects.all()})
 
 
-@login_required
+@role_required('viewer', 'salesman', 'production', 'admin')
 def project_detail(request, pk):
     project = get_object_or_404(Project, pk=pk)
     measurements = project.measurements.select_related('system', 'glass', 'color').all()
@@ -160,7 +161,7 @@ def project_detail(request, pk):
     })
 
 
-@login_required
+@role_required('salesman', 'admin')
 def measurement_add(request, project_pk):
     project = get_object_or_404(Project, pk=project_pk)
     if not project.can_edit(request.user):
@@ -209,7 +210,7 @@ def measurement_add(request, project_pk):
     return redirect('project_detail', pk=project_pk)
 
 
-@login_required
+@role_required('salesman', 'admin')
 def measurement_edit(request, pk):
     item = get_object_or_404(MeasurementItem, pk=pk)
     if not item.project.can_edit(request.user):

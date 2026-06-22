@@ -7,8 +7,9 @@
 {% if project.is_locked %}
 <div class="locked-banner mb-3">
   <i class="fa fa-lock me-2"></i> <strong>Project Locked</strong> –
-  {{ project.lock_reason }} (by {{ project.locked_by.get_full_name|default:project.locked_by.username }}
-  on {{ project.locked_at|date:"d M Y H:i" }})
+  {{ project.lock_reason }}
+  {% if project.locked_by %}(by {{ project.locked_by.get_full_name|default:project.locked_by.username }}{% endif %}
+  on {{ project.locked_at|date:"d M Y H:i" }}{% if project.locked_by %}){% endif %}
   {% if user.profile.is_admin %}
   <form method="post" action="{% url 'project_unlock' project.pk %}" class="d-inline ms-3">
     {% csrf_token %}
@@ -34,7 +35,7 @@
             <p class="mb-1"><strong>Customer:</strong>
               <a href="{% url 'customer_detail' project.customer.pk %}">{{ project.customer.name }}</a></p>
             <p class="mb-1"><strong>Salesman:</strong>
-              {{ project.salesman.get_full_name|default:project.salesman.username|default:"—" }}</p>
+              {% if project.salesman %}{{ project.salesman.get_full_name|default:project.salesman.username }}{% else %}—{% endif %}</p>
             <p class="mb-1"><strong>Site Address:</strong>
               {{ project.site_address|default:"Not specified" }}</p>
           </div>

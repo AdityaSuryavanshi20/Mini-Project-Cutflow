@@ -94,7 +94,7 @@
             </span>
             {% if p.is_locked %}<i class="fa fa-lock ms-1 text-danger" title="Locked"></i>{% endif %}
           </td>
-          <td>{{ p.salesman.get_full_name|default:p.salesman.username|default:"—" }}</td>
+          <td>{% if p.salesman %}{{ p.salesman.get_full_name|default:p.salesman.username }}{% else %}—{% endif %}</td>
           <td class="text-muted small">{{ p.updated_at|date:"d M Y" }}</td>
           <td>
             <a href="{% url 'project_detail' p.pk %}" class="btn btn-sm btn-outline-primary">Open</a>

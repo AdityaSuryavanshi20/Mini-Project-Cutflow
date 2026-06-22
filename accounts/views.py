@@ -13,7 +13,7 @@ def login_view(request):
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '')
         user = authenticate(request, username=username, password=password)
-        if user and user.profile.is_active:
+        if user and hasattr(user, 'profile') and user.profile.is_active:
             login(request, user)
             next_url = request.GET.get('next', 'dashboard')
             return redirect(next_url)

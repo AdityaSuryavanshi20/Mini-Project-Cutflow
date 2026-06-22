@@ -8,6 +8,7 @@ from .models import ProductionJob, ProductionItem, ProductionCutItem, Optimizati
 from .models import ProductionJobStatus
 from projects.models import Project
 from projects.views import _is_admin
+from core.decorators import role_required
 from .services import generate_production_items, run_optimization
 from quotations.pdf_generator import generate_cutting_list_pdf
 
@@ -34,13 +35,13 @@ def _parse_positive_int_or_none(raw):
     return value if value > 0 else None
 
 
-@login_required
+@role_required('viewer', 'salesman', 'production', 'admin')
 def job_list(request):
     jobs = ProductionJob.objects.select_related('project__customer', 'assigned_to').all()
     return render(request, 'production/job_list.html', {'jobs': jobs})
 
 
-@login_required
+@role_required('salesman', 'production', 'admin')
 def job_create(request, project_pk):
     project = get_object_or_404(Project, pk=project_pk)
     if request.method == 'POST':
@@ -56,7 +57,7 @@ def job_create(request, project_pk):
     return render(request, 'production/job_create.html', {'project': project})
 
 
-@login_required
+@role_required('viewer', 'salesman', 'production', 'admin')
 def job_detail(request, pk):
     job = get_object_or_404(ProductionJob, pk=pk)
     items = job.items.select_related('system', 'glass', 'color').prefetch_related(
@@ -77,7 +78,7 @@ def job_detail(request, pk):
     })
 
 
-@login_required
+@role_required('salesman', 'production', 'admin')
 def generate_items(request, pk):
     job = get_object_or_404(ProductionJob, pk=pk)
     if not job.project.can_edit(request.user) and not _is_admin(request.user):
@@ -91,7 +92,7 @@ def generate_items(request, pk):
     return redirect('job_detail', pk=pk)
 
 
-@login_required
+@role_required('salesman', 'production', 'admin')
 def run_optimization_view(request, pk):
     job = get_object_or_404(ProductionJob, pk=pk)
     try:
@@ -109,7 +110,7 @@ def run_optimization_view(request, pk):
     return redirect('job_detail', pk=pk)
 
 
-@login_required
+@role_required('viewer', 'salesman', 'production', 'admin')
 def cutting_list_pdf(request, pk):
     job = get_object_or_404(ProductionJob, pk=pk)
     active_run = job.optimization_runs.filter(is_active=True).first()
@@ -122,7 +123,7 @@ def cutting_list_pdf(request, pk):
     return response
 
 
-@login_required
+@role_required('viewer', 'salesman', 'production', 'admin')
 def optimization_summary(request, pk):
     job = get_object_or_404(ProductionJob, pk=pk)
     active_run = job.optimization_runs.filter(is_active=True).first()
@@ -138,7 +139,7 @@ def optimization_summary(request, pk):
     })
 
 
-@login_required
+@role_required('viewer', 'salesman', 'production', 'admin')
 def hardware_summary(request, pk):
     job = get_object_or_404(ProductionJob, pk=pk)
     # Aggregate hardware across all items
@@ -158,7 +159,7 @@ def hardware_summary(request, pk):
     })
 
 
-@login_required
+@role_required('viewer', 'salesman', 'production', 'admin')
 def glass_schedule(request, pk):
     job = get_object_or_404(ProductionJob, pk=pk)
     items = job.items.select_related('glass', 'measurement').filter(glass__isnull=False)
@@ -168,7 +169,7 @@ def glass_schedule(request, pk):
     })
 
 
-@login_required
+@role_required('salesman', 'production', 'admin')
 def update_job_status(request, pk):
     job = get_object_or_404(ProductionJob, pk=pk)
     if request.method == 'POST':
@@ -180,7 +181,7 @@ def update_job_status(request, pk):
     return redirect('job_detail', pk=pk)
 
 
-@login_required
+@role_required('viewer', 'salesman', 'production', 'admin')
 def offcut_inventory(request):
     from catalog.models import Profile
 
@@ -207,7 +208,7 @@ def offcut_inventory(request):
     })
 
 
-@login_required
+@role_required('salesman', 'production', 'admin')
 def offcut_add(request):
     from catalog.models import Profile
 
@@ -237,7 +238,7 @@ def offcut_add(request):
     return render(request, 'production/offcut_add.html', {'profiles': profiles})
 
 
-@login_required
+@role_required('salesman', 'production', 'admin')
 def offcut_edit(request, pk):
     offcut = get_object_or_404(ReusableOffcut, pk=pk)
     if request.method == 'POST':
@@ -259,7 +260,7 @@ def offcut_edit(request, pk):
     return render(request, 'production/offcut_edit.html', {'offcut': offcut})
 
 
-@login_required
+@role_required('salesman', 'production', 'admin')
 def offcut_delete(request, pk):
     offcut = get_object_or_404(ReusableOffcut, pk=pk)
     if request.method == 'POST':
@@ -268,7 +269,7 @@ def offcut_delete(request, pk):
     return redirect('offcut_inventory')
 
 
-@login_required
+@role_required('salesman', 'production', 'admin')
 def offcut_scrap(request, pk):
     """Mark an offcut as scrapped/unavailable without deleting its history."""
     offcut = get_object_or_404(ReusableOffcut, pk=pk)

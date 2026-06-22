@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from core.decorators import role_required
 from django.http import HttpResponse
 from django.utils import timezone
 from django.db import transaction
@@ -44,13 +45,13 @@ def _parse_nonneg_decimal(raw, default, field_label, errors):
     return value
 
 
-@login_required
+@role_required('viewer', 'salesman', 'production', 'admin')
 def quotation_list(request):
     qs = Quotation.objects.select_related('project__customer', 'salesman').all()
     return render(request, 'quotations/quotation_list.html', {'quotations': qs})
 
 
-@login_required
+@role_required('salesman', 'admin')
 def quotation_create(request, project_pk):
     project = get_object_or_404(Project, pk=project_pk)
     if not project.can_edit(request.user):
@@ -101,7 +102,7 @@ def quotation_create(request, project_pk):
     return redirect('quotation_detail', pk=quote.pk)
 
 
-@login_required
+@role_required('viewer', 'salesman', 'production', 'admin')
 def quotation_detail(request, pk):
     quote = get_object_or_404(Quotation, pk=pk)
     items = quote.items.select_related('system', 'glass', 'color').all()
@@ -116,7 +117,7 @@ def quotation_detail(request, pk):
     })
 
 
-@login_required
+@role_required('salesman', 'admin')
 def quotation_update_pricing(request, pk):
     quote = get_object_or_404(Quotation, pk=pk)
     if not quote.project.can_edit(request.user):
@@ -194,7 +195,7 @@ def quotation_update_pricing(request, pk):
     return redirect('quotation_detail', pk=pk)
 
 
-@login_required
+@role_required('viewer', 'salesman', 'production', 'admin')
 def quotation_pdf(request, pk):
     quote = get_object_or_404(Quotation, pk=pk)
     pdf_bytes = generate_quotation_pdf(quote)
@@ -206,7 +207,7 @@ def quotation_pdf(request, pk):
 from django.core.mail import EmailMessage
 from django.conf import settings
 
-@login_required
+@role_required('salesman', 'admin')
 def quotation_send(request, pk):
     quote = get_object_or_404(Quotation, pk=pk)
     if request.method == 'POST':
