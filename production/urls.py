@@ -13,6 +13,7 @@ urlpatterns = [
     path('<int:pk>/generate/', views.generate_items, name='generate_production_items'),
     path('<int:pk>/optimize/', views.run_optimization_view, name='run_optimization'),
     path('<int:pk>/cutting-list.pdf', views.cutting_list_pdf, name='cutting_list_pdf'),
+    path('<int:pk>/load-list.pdf', views.load_list_pdf, name='load_list_pdf'),
     path('<int:pk>/optimization/', views.optimization_summary, name='optimization_summary'),
     path('<int:pk>/hardware/', views.hardware_summary, name='hardware_summary'),
     path('<int:pk>/glass/', views.glass_schedule, name='glass_schedule'),

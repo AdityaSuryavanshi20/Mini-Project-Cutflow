@@ -112,7 +112,8 @@
                     data-color="{{ m.color_id|default:'' }}"
                     data-description="{{ m.description|default:'' }}"
                     data-notes="{{ m.notes|default:'' }}"
-                    data-dimensions-confirmed="{{ m.dimensions_confirmed|yesno:'1,0' }}">
+                    data-dimensions-confirmed="{{ m.dimensions_confirmed|yesno:'1,0' }}"
+                    data-flyscreen="{{ m.flyscreen|yesno:'1,0' }}">
               <i class="fa fa-edit"></i>
             </button>
             {% endif %}
@@ -143,6 +144,24 @@
             <li class="list-group-item d-flex justify-content-between px-3 py-2">
               <span class="text-muted"><i class="fa fa-layer-group me-2 text-primary"></i>System</span>
               <span class="fw-medium text-end text-truncate ms-2" style="max-width: 60%;" title="{{ m.system.name }}">{{ m.system.name }}</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between px-3 py-2">
+              <span class="text-muted"><i class="fa fa-cube me-2 text-primary"></i>Material</span>
+              <span class="fw-medium text-end">
+                <span class="badge {% if m.system.material == 'aluminium' %}bg-secondary{% else %}bg-info text-dark{% endif %}">
+                  {{ m.system.get_material_display }}
+                </span>
+              </span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between px-3 py-2">
+              <span class="text-muted"><i class="fa fa-border-all me-2 text-primary"></i>Mesh / Flyscreen</span>
+              <span>
+                {% if m.flyscreen %}
+                <i class="fa fa-check-circle text-success"></i> Yes
+                {% else %}
+                <span class="text-muted">No</span>
+                {% endif %}
+              </span>
             </li>
             <li class="list-group-item d-flex justify-content-between px-3 py-2">
               <span class="text-muted"><i class="fa fa-hashtag me-2 text-primary"></i>Qty / Area</span>
@@ -278,6 +297,10 @@
               <div class="form-check">
                 <input type="checkbox" name="dimensions_confirmed" id="meas-dimensions-confirmed" class="form-check-input" value="1">
                 <label class="form-check-label" for="meas-dimensions-confirmed">Dimensions confirmed</label>
+              </div>
+              <div class="form-check">
+                <input type="checkbox" name="flyscreen" id="meas-flyscreen" class="form-check-input" value="1">
+                <label class="form-check-label" for="meas-flyscreen">Mesh / Flyscreen required</label>
               </div>
             </div>
           </div>
@@ -454,6 +477,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('meas-description').value = d.description || '';
             document.getElementById('meas-notes').value = d.notes || '';
             document.getElementById('meas-dimensions-confirmed').checked = d.dimensionsConfirmed === '1';
+            document.getElementById('meas-flyscreen').checked = d.flyscreen === '1';
 
             const modalEl = document.getElementById('addMeasModal');
             const modal = bootstrap.Modal.getOrCreateInstance(modalEl);

@@ -201,6 +201,7 @@ def measurement_add(request, project_pk):
             description=request.POST.get('description', ''),
             n_panels=n_panels,
             hinge_side=request.POST.get('hinge_side', ''),
+            flyscreen=bool(request.POST.get('flyscreen')),
             notes=request.POST.get('notes', ''),
             sort_order=existing,
         )
@@ -243,6 +244,7 @@ def measurement_edit(request, pk):
         item.description = request.POST.get('description', '')
         item.n_panels = n_panels
         item.hinge_side = request.POST.get('hinge_side', '')
+        item.flyscreen = bool(request.POST.get('flyscreen'))
         item.notes = request.POST.get('notes', '')
         item.final_width = final_width
         item.final_height = final_height

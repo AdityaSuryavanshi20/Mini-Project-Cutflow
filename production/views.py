@@ -10,7 +10,7 @@ from projects.models import Project
 from projects.views import _is_admin
 from core.decorators import role_required
 from .services import generate_production_items, run_optimization
-from quotations.pdf_generator import generate_cutting_list_pdf
+from quotations.pdf_generator import generate_cutting_list_pdf, generate_load_list_pdf
 
 
 def _next_job_no():
@@ -120,6 +120,19 @@ def cutting_list_pdf(request, pk):
     pdf_bytes = generate_cutting_list_pdf(active_run)
     response = HttpResponse(pdf_bytes, content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="{job.job_no}_cutting_list.pdf"'
+    return response
+
+
+@role_required('viewer', 'salesman', 'production', 'admin')
+def load_list_pdf(request, pk):
+    job = get_object_or_404(ProductionJob, pk=pk)
+    active_run = job.optimization_runs.filter(is_active=True).first()
+    if not active_run:
+        messages.error(request, 'No active optimization run. Run optimization first.')
+        return redirect('job_detail', pk=pk)
+    pdf_bytes = generate_load_list_pdf(active_run)
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{job.job_no}_load_list.pdf"'
     return response
 
 

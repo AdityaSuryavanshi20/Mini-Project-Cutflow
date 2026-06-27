@@ -331,6 +331,33 @@ class QuotationItem(models.Model):
     def recommended_unit_rate(self):
         return (self.total_cost_before_markup + self.variant_markup_amount).quantize(Decimal('0.01'))
 
+    def get_hardware_components(self):
+        rules = SystemHardwareRule.objects.filter(
+            system=self.system,
+            is_active=True,
+        ).select_related('hardware')
+        components = []
+        ctx = self._pricing_context()
+        for rule in rules:
+            try:
+                qty = evaluate_formula(rule.quantity_formula, ctx)
+            except ValueError:
+                qty = 0
+            if qty <= 0:
+                continue
+            qty_rounded = round(qty, 2)
+            unit_cost = rule.hardware.unit_cost
+            total_cost = Decimal(str(qty_rounded)) * unit_cost
+            components.append({
+                'name': rule.hardware.name,
+                'stock_no': rule.hardware.stock_no,
+                'qty': qty_rounded,
+                'unit': rule.hardware.unit,
+                'unit_cost': unit_cost,
+                'total_cost': total_cost,
+            })
+        return components
+
     def refresh_pricing(self):
         self.unit_rate = self.recommended_unit_rate
         self.weight_kg = (self.profile_weight_kg + self.glass_weight_kg).quantize(Decimal('0.001'))

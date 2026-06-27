@@ -31,11 +31,18 @@ class SystemCategory(models.TextChoices):
     COMPOSITE = 'composite', 'Composite'
 
 
+class SystemMaterial(models.TextChoices):
+    ALUMINIUM = 'aluminium', 'Aluminium'
+    UPVC = 'upvc', 'uPVC'
+
+
 class System(models.Model):
     """Window/door system type (e.g. SY01 Hinge Int Glz System)"""
     code = models.CharField(max_length=20, unique=True)
     name = models.CharField(max_length=150)
     category = models.CharField(max_length=30, choices=SystemCategory.choices)
+    material = models.CharField(max_length=20, choices=SystemMaterial.choices,
+                                 default=SystemMaterial.UPVC)
     brand = models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, blank=True)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
@@ -51,7 +58,8 @@ class System(models.Model):
         ordering = ['sort_order', 'code']
 
     def __str__(self):
-        return f"{self.code} – {self.name}"
+        material_label = self.get_material_display()
+        return f"{self.code} – {self.name} ({material_label})"
 
     def get_markup_percent(self, variant='standard'):
         if variant == 'premium':
