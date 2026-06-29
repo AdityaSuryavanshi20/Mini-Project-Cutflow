@@ -11,8 +11,6 @@ def create_profile(sender, instance, created, **kwargs):
         # lock/unlock, etc.) on their very first login.
         default_role = UserRole.ADMIN if instance.is_superuser else UserRole.VIEWER
         UserProfile.objects.get_or_create(user=instance, defaults={'role': default_role})
-
-@receiver(post_save, sender=User)
-def save_profile(sender, instance, **kwargs):
-    if hasattr(instance, 'profile'):
-        instance.profile.save()
+    # Note: save_profile signal removed – it caused a redundant profile.save()
+    # on every User.save() (password changes, admin edits, etc.).  Views that
+    # need to persist profile changes call profile.save() explicitly.

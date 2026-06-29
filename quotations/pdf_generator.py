@@ -845,8 +845,14 @@ def generate_production_document_pdf(production_job) -> bytes:
     for job_item in production_job.items.select_related(
             'measurement__system', 'measurement__glass', 'measurement__color').all():
         m = job_item.measurement
+        if m is None:
+            # Production item was created without a linked measurement (rare
+            # but possible if the measurement was deleted after job generation).
+            header_text = f"<b>{job_item.line_no} / {job_item.reference} – {job_item.location}</b>"
+        else:
+            header_text = f"<b>{m.line_no} / {m.reference} – {m.location}</b>"
         elems.append(KeepTogether([
-            Paragraph(f"<b>{m.line_no} / {m.reference} – {m.location}</b>", S['h3']),
+            Paragraph(header_text, S['h3']),
             _item_production_table(job_item, S),
             Spacer(1, 5 * mm),
         ]))
@@ -857,12 +863,21 @@ def generate_production_document_pdf(production_job) -> bytes:
 
 def _item_production_table(job_item, S):
     m = job_item.measurement
-    info = [
-        ['System', m.system.name if m.system else ''],
-        ['Description', m.description or ''],
-        ['Size', f"{m.effective_width}w × {m.effective_height}h mm"],
-        ['Glazing', str(m.glass) if m.glass else 'N/A'],
-    ]
+    if m is None:
+        # Fallback to ProductionItem fields if measurement was deleted
+        info = [
+            ['System', job_item.system.name if job_item.system else ''],
+            ['Description', job_item.description or ''],
+            ['Size', f"{job_item.width}w × {job_item.height}h mm"],
+            ['Glazing', str(job_item.glass) if job_item.glass else 'N/A'],
+        ]
+    else:
+        info = [
+            ['System', m.system.name if m.system else ''],
+            ['Description', m.description or ''],
+            ['Size', f"{m.effective_width}w × {m.effective_height}h mm"],
+            ['Glazing', str(m.glass) if m.glass else 'N/A'],
+        ]
     it = Table(info, colWidths=[35 * mm, CONTENT_W - 35 * mm])
     it.setStyle(TableStyle([
         ('FONTSIZE', (0, 0), (-1, -1), 8),
@@ -918,7 +933,10 @@ def generate_cutting_list_pdf(optimization_run) -> bytes:
             bars[cut.bar_number].append(cut)
 
         for bar_no, cuts in bars.items():
-            bar_len = segment.bar_length_mm
+            # Use the actual stock length of this specific bar (stored on each
+            # OptimizedCut record) rather than the segment-level modal length,
+            # which is wrong whenever a profile was cut from multiple stock sizes.
+            bar_len = cuts[0].bar_length_mm if cuts else segment.bar_length_mm
             bar_label = f"{1} x {bar_len}"
             elems.append(Paragraph(f"Bar {bar_no}  –  {bar_label}", S['small']))
 

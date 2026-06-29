@@ -14,15 +14,26 @@
     <div class="fw-bold fs-3">{{ run.total_bars_used }}</div><div class="text-muted small">Total Bars</div>
   </div></div></div>
   <div class="col-md-3"><div class="card"><div class="card-body text-center">
-    <div class="fw-bold fs-3">{{ run.total_cut_mm }}</div><div class="text-muted small">Cut Length (mm)</div>
+    <div class="fw-bold fs-3">{{ run.total_material_mm }}</div><div class="text-muted small">Material Ordered (mm)</div>
   </div></div></div>
   <div class="col-md-3"><div class="card"><div class="card-body text-center">
-    <div class="fw-bold fs-3 text-danger">{{ run.total_waste_mm }}</div><div class="text-muted small">Waste (mm)</div>
+    <div class="fw-bold fs-3">{{ run.total_cut_mm }}</div><div class="text-muted small">Used incl. Kerf (mm)</div>
   </div></div></div>
   <div class="col-md-3"><div class="card"><div class="card-body text-center">
     <div class="fw-bold fs-3 text-success">{{ run.utilisation_pct }}%</div><div class="text-muted small">Utilisation</div>
   </div></div></div>
 </div>
+{% if run.total_waste_mm > 0 %}
+<div class="alert alert-warning py-2">
+  <strong>Scrap waste:</strong> {{ run.total_waste_mm }} mm
+  <small class="text-muted ms-2">(offcuts below minimum reusable threshold of {{ run.min_reusable_mm }} mm)</small>
+</div>
+{% else %}
+<div class="alert alert-success py-2">
+  <i class="fa fa-check-circle me-1"></i>
+  No scrap waste — all bar remnants are reusable offcuts (≥ {{ run.min_reusable_mm }} mm).
+</div>
+{% endif %}
 {% for seg in segments %}
 <div class="card mb-3">
   <div class="card-header d-flex justify-content-between">

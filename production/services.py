@@ -382,6 +382,7 @@ def run_optimization(
     total_bars = 0
     total_material = 0
     total_used = 0
+    total_kerf = 0
     total_waste = 0
     total_inventory_scrap = 0
 
@@ -448,6 +449,7 @@ def run_optimization(
         total_bars += opt_result.total_bars
         total_material += opt_result.total_bar_length_mm
         total_used += opt_result.total_used_mm
+        total_kerf += opt_result.total_kerf_mm
         total_waste += opt_result.total_waste_mm
 
     used_offcut_ids = set()
@@ -488,7 +490,7 @@ def run_optimization(
             f"Optimization used length {total_used}mm exceeds available material {total_material}mm."
         )
 
-    utilisation = round(total_used / total_material * 100, 2) if total_material else 0
+    utilisation = round((total_used + total_kerf) / total_material * 100, 2) if total_material else 0
     if utilisation > 100:
         logger.error(
             "Computed optimisation utilisation is greater than 100%%: %s%%", utilisation
@@ -508,7 +510,7 @@ def run_optimization(
 
     run.total_bars_used = total_bars
     run.total_material_mm = total_material
-    run.total_cut_mm = total_used
+    run.total_cut_mm = total_used + total_kerf
     run.total_waste_mm = total_waste
     run.utilisation_pct = Decimal(str(utilisation))
     run_length_counts: Dict[int, int] = {}

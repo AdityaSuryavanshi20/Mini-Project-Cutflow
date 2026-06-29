@@ -256,17 +256,28 @@ def measurement_edit(request, pk):
     return redirect('project_detail', pk=item.project.pk)
 
 
-@login_required
-def project_lock(request, pk):
+@role_required('salesman', 'admin')
+def measurement_delete(request, pk):
+    item = get_object_or_404(MeasurementItem, pk=pk)
+    if not item.project.can_edit(request.user):
+        messages.error(request, 'Project is locked.')
+        return redirect('project_detail', pk=item.project.pk)
+    if request.method == 'POST':
+        project_pk = item.project.pk
+        item.delete()
+        messages.success(request, 'Measurement removed.')
+        return redirect('project_detail', pk=project_pk)
+    return redirect('project_detail', pk=item.project.pk)
     if not _is_admin(request.user):
         messages.error(request, 'Only admin can lock projects.')
         return redirect('project_detail', pk=pk)
     project = get_object_or_404(Project, pk=pk)
     if request.method == 'POST':
         reason = request.POST.get('reason', 'Production approved')
+        pre_lock_status = project.status  # capture BEFORE lock() mutates it
         project.lock(request.user, reason)
         ProjectStatusHistory.objects.create(
-            project=project, from_status=project.status,
+            project=project, from_status=pre_lock_status,
             to_status=ProjectStatus.LOCKED, changed_by=request.user, notes=reason)
         messages.success(request, 'Project locked.')
     return redirect('project_detail', pk=pk)

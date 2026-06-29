@@ -116,6 +116,13 @@
                     data-flyscreen="{{ m.flyscreen|yesno:'1,0' }}">
               <i class="fa fa-edit"></i>
             </button>
+            <form method="post" action="{% url 'measurement_delete' m.pk %}" class="d-inline ms-1"
+                  onsubmit="return confirm('Remove measurement {{ m.reference }} ({{ m.line_no }})? This cannot be undone.');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm text-danger p-0 border-0 bg-transparent" title="Delete measurement">
+                <i class="fa fa-trash"></i>
+              </button>
+            </form>
             {% endif %}
           </div>
           
@@ -127,6 +134,7 @@
                  data-height="{{ m.effective_height }}"
                  data-panels="{{ m.n_panels }}"
                  data-system="{{ m.system.category }}"
+                 data-system-code="{{ m.system.code }}"
                  data-hinge="{{ m.hinge_side|default:'' }}"
                  data-color="{{ m.color.code|default:'#8B5A2B' }}"> <!-- Default frame color if none -->
                  <!-- SVG will be injected here -->
@@ -347,8 +355,23 @@ document.addEventListener('DOMContentLoaded', function() {
         const h = parseFloat(container.dataset.height);
         const panels = parseInt(container.dataset.panels) || 1;
         const system = container.dataset.system;
+        const systemCode = (container.dataset.systemCode || '').toUpperCase();
         const hinge = container.dataset.hinge;
         let colorCode = container.dataset.color || '#6c757d'; 
+
+        // ── Derive number of tracks from system code ──────────────────────
+        // SY03 (3-Track) has 3 rails; SY02 (2-Track) has 2; others use panels.
+        // The track count controls how many vertical divider lines are drawn.
+        let trackCount = 0; // 0 = not a track system → no dividers
+        if (system === 'sliding' || system === 'door_sliding') {
+            if (systemCode.includes('SY03') || systemCode.includes('3-TRACK') || systemCode.includes('3T')) {
+                trackCount = 3;
+            } else if (systemCode.includes('SY02') || systemCode.includes('2-TRACK') || systemCode.includes('2T')) {
+                trackCount = 2;
+            } else {
+                trackCount = panels; // fallback: one section per sash panel
+            }
+        }
         
         // Basic color mapping if the code is just a name
         if (!colorCode.startsWith('#') && !colorCode.startsWith('rgb')) {
@@ -394,42 +417,71 @@ document.addEventListener('DOMContentLoaded', function() {
         // Inner opening
         svgContent += `<rect x="${frameT}" y="${frameT}" width="${svgW - 2*frameT}" height="${svgH - 2*frameT}" fill="#e9ecef" stroke="#333" stroke-width="1"/>`;
         
-        // Panels
+        // Panels / track sections
         const innerW = svgW - 2*frameT;
         const innerH = svgH - 2*frameT;
-        const panelW = innerW / panels;
-        
-        for (let i = 0; i < panels; i++) {
-            const px = frameT + i * panelW;
-            const py = frameT;
-            
-            // Draw sash frame for each panel
-            const sashT = frameT * 0.8;
-            svgContent += `<rect x="${px}" y="${py}" width="${panelW}" height="${innerH}" fill="none" stroke="${colorCode}" stroke-width="${sashT}"/>`;
-            
-            // Draw glass reflection
-            const glassX = px + sashT/2;
-            const glassY = py + sashT/2;
-            const glassW = panelW - sashT;
-            const glassH = innerH - sashT;
-            
-            svgContent += `<polygon points="${glassX + glassW*0.2},${glassY + glassH*0.8} ${glassX + glassW*0.8},${glassY + glassH*0.2} ${glassX + glassW*0.9},${glassY + glassH*0.2} ${glassX + glassW*0.3},${glassY + glassH*0.8}" fill="rgba(255,255,255,0.5)" />`;
-            
-            // Opening indicators
-            if (system === 'sliding' || system === 'door_sliding') {
-                const cy = py + innerH/2;
+
+        // ── Draw track-section dividers (sliding only) ────────────────────
+        // A 3-track system shows 3 equal vertical sections separated by thin
+        // track rails. A 2-track system shows 2. Sash panels (n_panels) may
+        // differ from track count — sashes overlap tracks in real hardware.
+        if (trackCount > 1) {
+            const sectionW = innerW / trackCount;
+            // Draw track rail lines between sections
+            for (let t = 1; t < trackCount; t++) {
+                const tx = frameT + t * sectionW;
+                const railW = Math.max(2, frameT * 0.35);
+                svgContent += `<rect x="${tx - railW/2}" y="${frameT}" width="${railW}" height="${innerH}" fill="${colorCode}" opacity="0.7" />`;
+            }
+            // Draw sash panels on top of track grid — panels may overlap tracks
+            const panelW = innerW / panels;
+            for (let i = 0; i < panels; i++) {
+                const px = frameT + i * panelW;
+                const py = frameT;
+                const sashT = frameT * 0.8;
+                // Offset alternate panels slightly to show track-layer effect
+                const yOffset = (i % 2 === 1 && trackCount >= 2) ? frameT * 0.12 : 0;
+                svgContent += `<rect x="${px}" y="${py + yOffset}" width="${panelW}" height="${innerH - yOffset}" fill="none" stroke="${colorCode}" stroke-width="${sashT}"/>`;
+
+                const glassX = px + sashT/2;
+                const glassY = py + yOffset + sashT/2;
+                const glassW = panelW - sashT;
+                const glassH = innerH - yOffset - sashT;
+                svgContent += `<polygon points="${glassX + glassW*0.2},${glassY + glassH*0.8} ${glassX + glassW*0.8},${glassY + glassH*0.2} ${glassX + glassW*0.9},${glassY + glassH*0.2} ${glassX + glassW*0.3},${glassY + glassH*0.8}" fill="rgba(255,255,255,0.5)" />`;
+
+                // Slide arrows
+                const cy = py + yOffset + (innerH - yOffset)/2;
                 const arrowLen = Math.min(panelW * 0.4, 20);
-                svgContent += `<line x1="${px + panelW/2 - arrowLen/2}" y1="${cy}" x2="${px + panelW/2 + arrowLen/2}" y2="${cy}" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)" marker-start="url(#arrow-start)"/>`;
-            } else if (system === 'casement' || system === 'door_swing') {
-                let hX1 = px; // Left edge
-                let hX2 = px + panelW; // Right edge
-                
-                if (hinge === 'L' || (!hinge && i%2 === 0)) {
-                    // Points left
-                    svgContent += `<polyline points="${hX2},${py} ${hX1},${py + innerH/2} ${hX2},${py + innerH}" fill="none" stroke="#666" stroke-width="1.5" stroke-dasharray="2,2" />`;
-                } else if (hinge === 'R' || (!hinge && i%2 !== 0)) {
-                    // Points right
-                    svgContent += `<polyline points="${hX1},${py} ${hX2},${py + innerH/2} ${hX1},${py + innerH}" fill="none" stroke="#666" stroke-width="1.5" stroke-dasharray="2,2" />`;
+                const dir = (i % 2 === 0) ? 1 : -1; // alternate slide directions
+                svgContent += `<line x1="${px + panelW/2 - arrowLen/2 * dir}" y1="${cy}" x2="${px + panelW/2 + arrowLen/2 * dir}" y2="${cy}" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)" marker-start="url(#arrow-start)"/>`;
+            }
+        } else {
+            // ── Non-track systems (casement, fixed, swing door) ───────────
+            const panelW = innerW / panels;
+            for (let i = 0; i < panels; i++) {
+                const px = frameT + i * panelW;
+                const py = frameT;
+                const sashT = frameT * 0.8;
+                svgContent += `<rect x="${px}" y="${py}" width="${panelW}" height="${innerH}" fill="none" stroke="${colorCode}" stroke-width="${sashT}"/>`;
+
+                const glassX = px + sashT/2;
+                const glassY = py + sashT/2;
+                const glassW = panelW - sashT;
+                const glassH = innerH - sashT;
+                svgContent += `<polygon points="${glassX + glassW*0.2},${glassY + glassH*0.8} ${glassX + glassW*0.8},${glassY + glassH*0.2} ${glassX + glassW*0.9},${glassY + glassH*0.2} ${glassX + glassW*0.3},${glassY + glassH*0.8}" fill="rgba(255,255,255,0.5)" />`;
+
+                if (system === 'sliding' || system === 'door_sliding') {
+                    const cy = py + innerH/2;
+                    const arrowLen = Math.min(panelW * 0.4, 20);
+                    svgContent += `<line x1="${px + panelW/2 - arrowLen/2}" y1="${cy}" x2="${px + panelW/2 + arrowLen/2}" y2="${cy}" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)" marker-start="url(#arrow-start)"/>`;
+                } else if (system === 'casement' || system === 'door_swing') {
+                    let hX1 = px;
+                    let hX2 = px + panelW;
+                    if (hinge === 'L' || (!hinge && i%2 === 0)) {
+                        svgContent += `<polyline points="${hX2},${py} ${hX1},${py + innerH/2} ${hX2},${py + innerH}" fill="none" stroke="#666" stroke-width="1.5" stroke-dasharray="2,2" />`;
+                    } else if (hinge === 'R' || (!hinge && i%2 !== 0)) {
+                        svgContent += `<polyline points="${hX1},${py} ${hX2},${py + innerH/2} ${hX1},${py + innerH}" fill="none" stroke="#666" stroke-width="1.5" stroke-dasharray="2,2" />`;
+                    }
                 }
             }
         }

@@ -10,6 +10,7 @@ urlpatterns = [
     path('<int:pk>/', views.project_detail, name='project_detail'),
     path('<int:project_pk>/measurements/add/', views.measurement_add, name='measurement_add'),
     path('measurements/<int:pk>/edit/', views.measurement_edit, name='measurement_edit'),
+    path('measurements/<int:pk>/delete/', views.measurement_delete, name='measurement_delete'),
     path('<int:pk>/lock/', views.project_lock, name='project_lock'),
     path('<int:pk>/unlock/', views.project_unlock, name='project_unlock'),
 ]

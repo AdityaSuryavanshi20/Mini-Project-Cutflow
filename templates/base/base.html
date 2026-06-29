@@ -128,7 +128,12 @@
       {% if user.is_authenticated %}
       <span class="text-muted small">{{ user.get_full_name|default:user.username }}
         <span class="badge bg-secondary ms-1">{{ user.profile.role }}</span></span>
-      <a href="{% url 'logout' %}" class="text-muted small"><i class="fa fa-sign-out-alt"></i></a>
+      <form method="post" action="{% url 'logout' %}" class="d-inline m-0 p-0">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-link text-muted small p-0 m-0 border-0" title="Log out">
+          <i class="fa fa-sign-out-alt"></i>
+        </button>
+      </form>
       {% endif %}
     </div>
   </div>
