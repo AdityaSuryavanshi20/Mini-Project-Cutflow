@@ -302,6 +302,24 @@ def run_optimization(
         production_job=production_job, is_active=True
     ).update(is_active=False)
 
+    # Re-running optimization for this job must be deterministic: it should
+    # not feed the job its own leftover offcuts from a previous run of
+    # itself (that would change the result on every click, since each run
+    # both consumes and re-creates offcuts), and it must not permanently
+    # lock out offcuts borrowed from OTHER jobs just because a now-discarded
+    # earlier run of this job used them.
+    #
+    # 1. Release offcuts this job's previous run had marked as consumed —
+    #    they belong to the shared pool and that run no longer exists.
+    ReusableOffcut.objects.filter(used_in_job=production_job).update(
+        is_available=True, used_in_job=None,
+    )
+    # 2. Remove offcuts this job's previous run generated — they describe
+    #    leftovers from cut data that's about to be re-optimized and would
+    #    otherwise be double-counted as "available" material for this same
+    #    run.
+    ReusableOffcut.objects.filter(source_job=production_job).delete()
+
     run = OptimizationRun.objects.create(
         production_job=production_job,
         bar_length_mm=settings.default_bar_length_mm,

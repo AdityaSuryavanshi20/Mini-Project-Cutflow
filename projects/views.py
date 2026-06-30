@@ -268,6 +268,10 @@ def measurement_delete(request, pk):
         messages.success(request, 'Measurement removed.')
         return redirect('project_detail', pk=project_pk)
     return redirect('project_detail', pk=item.project.pk)
+
+
+@login_required
+def project_lock(request, pk):
     if not _is_admin(request.user):
         messages.error(request, 'Only admin can lock projects.')
         return redirect('project_detail', pk=pk)
