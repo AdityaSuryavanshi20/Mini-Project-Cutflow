@@ -19,6 +19,7 @@ CutFlow/
 ```
 
 ### Business Flow
+
 1. **Salesman** creates customer → project → adds measurements
 2. **Salesman** generates quotation from measurements → sets rates → downloads PDF → sends to customer
 3. **Admin** locks project after acceptance
@@ -134,6 +135,7 @@ python manage.py migrate
 ```bash
 python manage.py createsuperuser
 ```
+
 Enter username, email, password. This user automatically gets `role = admin` on their profile (superusers are treated as admin throughout the app), so no extra setup is needed before logging in.
 
 ### 6. Seed Initial Catalog Data
@@ -143,6 +145,7 @@ python manage.py seed_data
 ```
 
 This seeds:
+
 - 8 window/door systems (SY01–SY08)
 - 12 aluminium profiles with formulas for SY01
 - 8 glass types (clear, toughened, DGU etc.)
@@ -180,6 +183,7 @@ gunicorn CutFlow.wsgi:application \
 ```
 
 Sample Nginx config:
+
 ```nginx
 server {
     listen 80;
@@ -204,12 +208,12 @@ server {
 
 ## User Roles
 
-| Role       | Access |
-|------------|--------|
-| `admin`    | Full access; lock/unlock projects; Django admin |
-| `salesman` | Customers, projects, measurements, quotations |
-| `production` | Production jobs, optimization, cutting lists |
-| `viewer`   | Read-only dashboard |
+| Role         | Access                                          |
+| ------------ | ----------------------------------------------- |
+| `admin`      | Full access; lock/unlock projects; Django admin |
+| `salesman`   | Customers, projects, measurements, quotations   |
+| `production` | Production jobs, optimization, cutting lists    |
+| `viewer`     | Read-only dashboard                             |
 
 ---
 
@@ -219,16 +223,16 @@ Formulas are defined in Django Admin → **Catalog → Profile Formulas**.
 
 ### Formula Variables
 
-| Variable | Meaning |
-|----------|---------|
-| `W` | Window width in mm |
-| `H` | Window height in mm |
-| `n_panels` | Number of sashes/panels |
+| Variable   | Meaning                                   |
+| ---------- | ----------------------------------------- |
+| `W`        | Window width in mm                        |
+| `H`        | Window height in mm                       |
+| `n_panels` | Number of sashes/panels                   |
 | `offset_l` | Profile left offset (from Profile record) |
-| `offset_r` | Profile right offset |
-| `offset_t` | Profile top offset |
-| `offset_b` | Profile bottom offset |
-| `qty` | Unit quantity |
+| `offset_r` | Profile right offset                      |
+| `offset_t` | Profile top offset                        |
+| `offset_b` | Profile bottom offset                     |
+| `qty`      | Unit quantity                             |
 
 ### Example Formulas
 
@@ -245,20 +249,20 @@ Bay facet coupler:            635                          qty: 2
 
 ## Key URLs
 
-| URL | Description |
-|-----|-------------|
-| `/` | Dashboard |
-| `/accounts/login/` | Login |
-| `/projects/` | Project list |
-| `/projects/new/` | Create project |
-| `/projects/customers/` | Customer list |
-| `/quotations/` | All quotations |
-| `/quotations/<id>/pdf/` | Download quotation PDF |
-| `/production/` | Production jobs |
-| `/production/<id>/optimize/` | Run bar optimization |
-| `/production/<id>/cutting-list.pdf` | Download cutting list PDF |
-| `/catalog/systems/` | Systems catalog |
-| `/admin/` | Django admin (admin role only) |
+| URL                                 | Description                    |
+| ----------------------------------- | ------------------------------ |
+| `/`                                 | Dashboard                      |
+| `/accounts/login/`                  | Login                          |
+| `/projects/`                        | Project list                   |
+| `/projects/new/`                    | Create project                 |
+| `/projects/customers/`              | Customer list                  |
+| `/quotations/`                      | All quotations                 |
+| `/quotations/<id>/pdf/`             | Download quotation PDF         |
+| `/production/`                      | Production jobs                |
+| `/production/<id>/optimize/`        | Run bar optimization           |
+| `/production/<id>/cutting-list.pdf` | Download cutting list PDF      |
+| `/catalog/systems/`                 | Systems catalog                |
+| `/admin/`                           | Django admin (admin role only) |
 
 ---
 
@@ -282,15 +286,18 @@ Bay facet coupler:            635                          qty: 2
 ## Extending the System
 
 ### Add a new System with Formulas
+
 1. Go to `/admin/catalog/system/add/`
 2. Add profiles at `/admin/catalog/profile/add/`
 3. Add formulas at `/admin/catalog/profileformula/add/`
    - One formula per (profile, system, position) combination
 
 ### Customize Company Settings
+
 - `/admin/catalog/companysettings/` → Edit name, address, GST rates, bar length, kerf, etc.
 
 ### Hardware Rules
+
 - `/admin/catalog/systemhardwarerule/` → Define how many hardware pieces each system needs
 
 ---
@@ -298,6 +305,7 @@ Bay facet coupler:            635                          qty: 2
 ## SQL Schema Summary
 
 Tables created by migrations:
+
 - `accounts_userprofile` – user roles
 - `accounts_activitylog` – audit trail
 - `catalog_brand`, `catalog_color`
