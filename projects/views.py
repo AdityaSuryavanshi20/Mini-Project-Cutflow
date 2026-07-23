@@ -6,6 +6,7 @@ from django.db import transaction
 from .models import Customer, Project, MeasurementItem, ProjectStatus, ProjectStatusHistory
 from catalog.models import System, Color, Glass
 from core.decorators import role_required
+from core.scoping import scoped_customers, scoped_projects
 import json
 
 
@@ -53,7 +54,7 @@ def _parse_positive_int(raw, default, field_label, errors, allow_none=False):
 
 @role_required('viewer', 'salesman', 'production', 'admin')
 def customer_list(request):
-    qs = Customer.objects.all()
+    qs = scoped_customers(request.user)
     q = request.GET.get('q', '')
     if q:
         qs = qs.filter(name__icontains=q) | qs.filter(phone__icontains=q)
@@ -87,15 +88,15 @@ def customer_create(request):
 
 @role_required('viewer', 'salesman', 'production', 'admin')
 def customer_detail(request, pk):
-    customer = get_object_or_404(Customer, pk=pk)
-    projects = customer.projects.all()
+    customer = get_object_or_404(scoped_customers(request.user), pk=pk)
+    projects = scoped_projects(request.user).filter(customer=customer)
     return render(request, 'projects/customer_detail.html',
                   {'customer': customer, 'projects': projects})
 
 
 @role_required('viewer', 'salesman', 'production', 'admin')
 def project_list(request):
-    qs = Project.objects.select_related('customer', 'salesman').all()
+    qs = scoped_projects(request.user).select_related('customer', 'salesman')
     status_filter = request.GET.get('status', '')
     if status_filter:
         qs = qs.filter(status=status_filter)
@@ -108,6 +109,7 @@ def project_list(request):
 
 @role_required('salesman', 'admin')
 def project_create(request):
+    allowed_customers = scoped_customers(request.user)
     if request.method == 'POST':
         ref = request.POST.get('reference', '').strip()
         name = request.POST.get('name', '').strip()
@@ -116,19 +118,19 @@ def project_create(request):
         if not ref:
             messages.error(request, 'Project reference is required.')
             return render(request, 'projects/project_form.html', {
-                'action': 'Create', 'customers': Customer.objects.all(), 'post': request.POST})
+                'action': 'Create', 'customers': allowed_customers, 'post': request.POST})
         if Project.objects.filter(reference=ref).exists():
             messages.error(request, 'Reference already exists.')
             return render(request, 'projects/project_form.html', {
-                'action': 'Create', 'customers': Customer.objects.all(), 'post': request.POST})
+                'action': 'Create', 'customers': allowed_customers, 'post': request.POST})
         if not name:
             messages.error(request, 'Project name is required.')
             return render(request, 'projects/project_form.html', {
-                'action': 'Create', 'customers': Customer.objects.all(), 'post': request.POST})
-        if not customer_id or not Customer.objects.filter(pk=customer_id).exists():
+                'action': 'Create', 'customers': allowed_customers, 'post': request.POST})
+        if not customer_id or not allowed_customers.filter(pk=customer_id).exists():
             messages.error(request, 'Please select a valid customer.')
             return render(request, 'projects/project_form.html', {
-                'action': 'Create', 'customers': Customer.objects.all(), 'post': request.POST})
+                'action': 'Create', 'customers': allowed_customers, 'post': request.POST})
 
         with transaction.atomic():
             p = Project.objects.create(
@@ -145,12 +147,12 @@ def project_create(request):
         messages.success(request, f'Project {p.reference} created.')
         return redirect('project_detail', pk=p.pk)
     return render(request, 'projects/project_form.html', {
-        'action': 'Create', 'customers': Customer.objects.all()})
+        'action': 'Create', 'customers': allowed_customers})
 
 
 @role_required('viewer', 'salesman', 'production', 'admin')
 def project_detail(request, pk):
-    project = get_object_or_404(Project, pk=pk)
+    project = get_object_or_404(scoped_projects(request.user), pk=pk)
     measurements = project.measurements.select_related('system', 'glass', 'color').all()
     return render(request, 'projects/project_detail.html', {
         'project': project,
@@ -163,7 +165,7 @@ def project_detail(request, pk):
 
 @role_required('salesman', 'admin')
 def measurement_add(request, project_pk):
-    project = get_object_or_404(Project, pk=project_pk)
+    project = get_object_or_404(scoped_projects(request.user), pk=project_pk)
     if not project.can_edit(request.user):
         messages.error(request, 'Project is locked.')
         return redirect('project_detail', pk=project_pk)
@@ -213,7 +215,8 @@ def measurement_add(request, project_pk):
 
 @role_required('salesman', 'admin')
 def measurement_edit(request, pk):
-    item = get_object_or_404(MeasurementItem, pk=pk)
+    item = get_object_or_404(
+        MeasurementItem, pk=pk, project__in=scoped_projects(request.user))
     if not item.project.can_edit(request.user):
         messages.error(request, 'Project is locked.')
         return redirect('project_detail', pk=item.project.pk)
@@ -258,7 +261,8 @@ def measurement_edit(request, pk):
 
 @role_required('salesman', 'admin')
 def measurement_delete(request, pk):
-    item = get_object_or_404(MeasurementItem, pk=pk)
+    item = get_object_or_404(
+        MeasurementItem, pk=pk, project__in=scoped_projects(request.user))
     if not item.project.can_edit(request.user):
         messages.error(request, 'Project is locked.')
         return redirect('project_detail', pk=item.project.pk)

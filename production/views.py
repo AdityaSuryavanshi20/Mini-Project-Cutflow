@@ -9,6 +9,7 @@ from .models import ProductionJobStatus
 from projects.models import Project
 from projects.views import _is_admin
 from core.decorators import role_required
+from core.scoping import scoped_projects, scoped_jobs
 from .services import generate_production_items, run_optimization
 from quotations.pdf_generator import generate_cutting_list_pdf, generate_load_list_pdf
 
@@ -37,13 +38,13 @@ def _parse_positive_int_or_none(raw):
 
 @role_required('viewer', 'salesman', 'production', 'admin')
 def job_list(request):
-    jobs = ProductionJob.objects.select_related('project__customer', 'assigned_to').all()
+    jobs = scoped_jobs(request.user).select_related('project__customer', 'assigned_to')
     return render(request, 'production/job_list.html', {'jobs': jobs})
 
 
 @role_required('salesman', 'production', 'admin')
 def job_create(request, project_pk):
-    project = get_object_or_404(Project, pk=project_pk)
+    project = get_object_or_404(scoped_projects(request.user), pk=project_pk)
     if request.method == 'POST':
         with transaction.atomic():
             job = ProductionJob.objects.create(
@@ -59,7 +60,7 @@ def job_create(request, project_pk):
 
 @role_required('viewer', 'salesman', 'production', 'admin')
 def job_detail(request, pk):
-    job = get_object_or_404(ProductionJob, pk=pk)
+    job = get_object_or_404(scoped_jobs(request.user), pk=pk)
     items = job.items.select_related('system', 'glass', 'color').prefetch_related(
         'cut_items__profile', 'hardware_items__hardware')
     active_run = job.optimization_runs.filter(is_active=True).first()
@@ -80,7 +81,7 @@ def job_detail(request, pk):
 
 @role_required('salesman', 'production', 'admin')
 def generate_items(request, pk):
-    job = get_object_or_404(ProductionJob, pk=pk)
+    job = get_object_or_404(scoped_jobs(request.user), pk=pk)
     if not job.project.can_edit(request.user) and not _is_admin(request.user):
         messages.error(request, 'Access denied.')
         return redirect('job_detail', pk=pk)
@@ -94,7 +95,7 @@ def generate_items(request, pk):
 
 @role_required('salesman', 'production', 'admin')
 def run_optimization_view(request, pk):
-    job = get_object_or_404(ProductionJob, pk=pk)
+    job = get_object_or_404(scoped_jobs(request.user), pk=pk)
     try:
         opt_run = run_optimization(job)
         messages.success(
@@ -112,7 +113,7 @@ def run_optimization_view(request, pk):
 
 @role_required('viewer', 'salesman', 'production', 'admin')
 def cutting_list_pdf(request, pk):
-    job = get_object_or_404(ProductionJob, pk=pk)
+    job = get_object_or_404(scoped_jobs(request.user), pk=pk)
     active_run = job.optimization_runs.filter(is_active=True).first()
     if not active_run:
         messages.error(request, 'No active optimization run. Run optimization first.')
@@ -125,7 +126,7 @@ def cutting_list_pdf(request, pk):
 
 @role_required('viewer', 'salesman', 'production', 'admin')
 def load_list_pdf(request, pk):
-    job = get_object_or_404(ProductionJob, pk=pk)
+    job = get_object_or_404(scoped_jobs(request.user), pk=pk)
     active_run = job.optimization_runs.filter(is_active=True).first()
     if not active_run:
         messages.error(request, 'No active optimization run. Run optimization first.')
@@ -138,7 +139,7 @@ def load_list_pdf(request, pk):
 
 @role_required('viewer', 'salesman', 'production', 'admin')
 def optimization_summary(request, pk):
-    job = get_object_or_404(ProductionJob, pk=pk)
+    job = get_object_or_404(scoped_jobs(request.user), pk=pk)
     active_run = job.optimization_runs.filter(is_active=True).first()
     if not active_run:
         messages.error(request, 'Run optimization first.')
@@ -154,7 +155,7 @@ def optimization_summary(request, pk):
 
 @role_required('viewer', 'salesman', 'production', 'admin')
 def hardware_summary(request, pk):
-    job = get_object_or_404(ProductionJob, pk=pk)
+    job = get_object_or_404(scoped_jobs(request.user), pk=pk)
     # Aggregate hardware across all items
     from django.db.models import Sum
     from .models import HardwareRequirement
@@ -174,7 +175,7 @@ def hardware_summary(request, pk):
 
 @role_required('viewer', 'salesman', 'production', 'admin')
 def glass_schedule(request, pk):
-    job = get_object_or_404(ProductionJob, pk=pk)
+    job = get_object_or_404(scoped_jobs(request.user), pk=pk)
     items = job.items.select_related('glass', 'measurement').filter(glass__isnull=False)
     return render(request, 'production/glass_schedule.html', {
         'job': job,
@@ -184,7 +185,7 @@ def glass_schedule(request, pk):
 
 @role_required('salesman', 'production', 'admin')
 def update_job_status(request, pk):
-    job = get_object_or_404(ProductionJob, pk=pk)
+    job = get_object_or_404(scoped_jobs(request.user), pk=pk)
     if request.method == 'POST':
         new_status = request.POST.get('status')
         if new_status in dict(ProductionJobStatus.choices):

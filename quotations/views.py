@@ -4,6 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from core.decorators import role_required
+from core.scoping import scoped_projects, scoped_quotations
 from django.http import HttpResponse
 from django.utils import timezone
 from django.db import transaction
@@ -47,13 +48,13 @@ def _parse_nonneg_decimal(raw, default, field_label, errors):
 
 @role_required('viewer', 'salesman', 'production', 'admin')
 def quotation_list(request):
-    qs = Quotation.objects.select_related('project__customer', 'salesman').all()
+    qs = scoped_quotations(request.user).select_related('project__customer', 'salesman')
     return render(request, 'quotations/quotation_list.html', {'quotations': qs})
 
 
 @role_required('salesman', 'admin')
 def quotation_create(request, project_pk):
-    project = get_object_or_404(Project, pk=project_pk)
+    project = get_object_or_404(scoped_projects(request.user), pk=project_pk)
     if not project.can_edit(request.user):
         messages.error(request, 'Project is locked.')
         return redirect('project_detail', pk=project_pk)
@@ -104,7 +105,7 @@ def quotation_create(request, project_pk):
 
 @role_required('viewer', 'salesman', 'production', 'admin')
 def quotation_detail(request, pk):
-    quote = get_object_or_404(Quotation, pk=pk)
+    quote = get_object_or_404(scoped_quotations(request.user), pk=pk)
     items = quote.items.select_related('system', 'glass', 'color').all()
     return render(request, 'quotations/quotation_detail.html', {
         'quote': quote,
@@ -119,7 +120,7 @@ def quotation_detail(request, pk):
 
 @role_required('salesman', 'admin')
 def quotation_update_pricing(request, pk):
-    quote = get_object_or_404(Quotation, pk=pk)
+    quote = get_object_or_404(scoped_quotations(request.user), pk=pk)
     if not quote.project.can_edit(request.user):
         messages.error(request, 'Project is locked.')
         return redirect('quotation_detail', pk=pk)
@@ -197,7 +198,7 @@ def quotation_update_pricing(request, pk):
 
 @role_required('viewer', 'salesman', 'production', 'admin')
 def quotation_pdf(request, pk):
-    quote = get_object_or_404(Quotation, pk=pk)
+    quote = get_object_or_404(scoped_quotations(request.user), pk=pk)
     pdf_bytes = generate_quotation_pdf(quote)
     response = HttpResponse(pdf_bytes, content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="{quote.quote_no}.pdf"'
@@ -209,7 +210,7 @@ from django.conf import settings
 
 @role_required('salesman', 'admin')
 def quotation_send(request, pk):
-    quote = get_object_or_404(Quotation, pk=pk)
+    quote = get_object_or_404(scoped_quotations(request.user), pk=pk)
     if request.method == 'POST':
         email = request.POST.get('email', quote.project.customer.email)
         
