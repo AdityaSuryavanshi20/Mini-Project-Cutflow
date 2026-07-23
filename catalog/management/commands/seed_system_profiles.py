@@ -8,7 +8,7 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **options):
         from catalog.models import (
-            Brand, System, SystemCategory,
+            Brand, System, SystemCategory, SystemMaterial,
             Profile, ProfileCategory, SystemProfile, ProfileFormula,
             Hardware, HardwareCategory, SystemHardwareRule,
         )
@@ -25,10 +25,14 @@ class Command(BaseCommand):
         ]
         systems = {}
         for code, name, category in systems_data:
-            system, _ = System.objects.get_or_create(
+            system, created = System.objects.get_or_create(
                 code=code,
-                defaults={'name': name, 'category': category, 'brand': brand, 'is_active': True}
+                defaults={'name': name, 'category': category, 'material': SystemMaterial.ALUMINIUM,
+                          'brand': brand, 'is_active': True}
             )
+            if not created and system.material != SystemMaterial.ALUMINIUM:
+                system.material = SystemMaterial.ALUMINIUM
+                system.save(update_fields=['material'])
             systems[code] = system
 
         profiles_data = [
