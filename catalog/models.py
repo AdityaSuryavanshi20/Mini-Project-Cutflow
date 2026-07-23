@@ -124,7 +124,7 @@ class Profile(models.Model):
     system = models.ForeignKey(System, on_delete=models.SET_NULL, null=True, blank=True, related_name='profiles')
     brand = models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, blank=True)
     description = models.TextField(blank=True)
-
+    
     # Physical properties
     weight_per_meter = models.DecimalField(max_digits=8, decimal_places=4, default=0,
                                            help_text='kg/m')
