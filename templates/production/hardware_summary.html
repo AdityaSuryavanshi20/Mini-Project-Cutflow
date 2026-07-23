@@ -2,29 +2,119 @@
 {% block title %}Hardware BOQ{% endblock %}
 {% block page_title %}Hardware BOQ – {{ job.job_no }}{% endblock %}
 {% block nav_jobs %}active{% endblock %}
+
 {% block content %}
-<a href="{% url 'job_detail' job.pk %}" class="btn btn-sm btn-outline-secondary mb-3">← Back to Job</a>
+<a href="{% url 'job_detail' job.pk %}" class="btn btn-sm btn-outline-secondary mb-3">
+    ← Back to Job
+</a>
+
 <div class="card">
-  <div class="card-header">Hardware & Accessories – {{ job.project.customer.name }} / {{ job.project.reference }}</div>
-  <div class="card-body p-0">
-    <table class="table mb-0">
-      <thead><tr><th>Stock No.</th><th>Description</th><th>Category</th><th>Unit</th><th>Total Qty</th><th>Unit Cost</th><th>Total Cost</th></tr></thead>
-      <tbody>
-        {% for h in hw_totals %}
-        <tr>
-          <td><small class="font-monospace">{{ h.hardware__stock_no }}</small></td>
-          <td>{{ h.hardware__name }}</td>
-          <td><span class="badge bg-light text-dark">{{ h.hardware__category }}</span></td>
-          <td>{{ h.unit }}</td>
-          <td class="fw-semibold">{{ h.total_qty }}</td>
-          <td>₹ {{ h.hardware__unit_cost }}</td>
-          <td class="fw-semibold">₹ {{ h.total_qty|floatformat:0 }}</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="7" class="text-center text-muted py-4">No hardware computed. Generate production items first.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+    <div class="card-header">
+        Hardware & Accessories – {{ job.project.customer.name }} / {{ job.project.reference }}
+    </div>
+
+    <div class="card-body p-0">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Stock No.</th>
+                    <th>Description</th>
+                    <th>Category</th>
+                    <th>Unit</th>
+                    <th>Total Qty</th>
+                    <th>Unit Cost</th>
+                    <th>Total Cost</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for h in hw_totals %}
+                <tr>
+                    <td>
+                        <small class="font-monospace">
+                            {{ h.hardware__stock_no }}
+                        </small>
+                    </td>
+
+                    <td>{{ h.hardware__name }}</td>
+
+                    <td>
+                        <span class="badge bg-light text-dark">
+                            {{ h.hardware__category }}
+                        </span>
+                    </td>
+
+                    <td>{{ h.unit }}</td>
+
+                    <!-- Quantity -->
+                    <td class="fw-semibold qty">
+                        {{ h.total_qty }}
+                    </td>
+
+                    <!-- Unit Cost -->
+                    <td class="unit-cost">
+                        {{ h.hardware__unit_cost }}
+                    </td>
+
+                    <!-- Total Cost (calculated by JS) -->
+                    <td class="fw-semibold total-cost">
+                        ₹ 0.00
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        No hardware computed. Generate production items first.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    document.querySelectorAll("tbody tr").forEach(function (row) {
+
+        const qtyCell = row.querySelector(".qty");
+        const costCell = row.querySelector(".unit-cost");
+        const totalCell = row.querySelector(".total-cost");
+
+        if (!qtyCell || !costCell || !totalCell) return;
+
+        // Remove commas, currency symbols, spaces, etc.
+        const qty = parseFloat(
+            qtyCell.textContent.replace(/[^0-9.-]/g, "")
+        ) || 0;
+
+        const unitCost = parseFloat(
+            costCell.textContent.replace(/[^0-9.-]/g, "")
+        ) || 0;
+
+        const total = qty * unitCost;
+
+        totalCell.textContent =
+            "₹ " + total.toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+
+        // Format Unit Cost nicely as well
+        costCell.textContent =
+            "₹ " + unitCost.toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+
+        // Format Qty (remove decimals if integer)
+        if (Number.isInteger(qty)) {
+            qtyCell.textContent = qty;
+        }
+    });
+
+});
+</script>
+
 {% endblock %}
