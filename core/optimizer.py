@@ -79,7 +79,7 @@ class OptimizedBar:
         return float(round(used / self.bar_length * 100, 2))
 
     def sort_cuts(self) -> None:
-        self.cuts.sort(key=lambda c: c.cut_request.length, reverse=True)
+        self.cuts.sort(key=lambda c: (-c.cut_request.length,c.cut_request.profile_id,c.cut_request.position_code,c.cut_request.source_ref,c.cut_request.left_angle,c.cut_request.right_angle))
         position = 0
         for index, cut in enumerate(self.cuts):
             cut.start_pos = position
@@ -276,7 +276,7 @@ def _consolidate_bars(bars: List[OptimizedBar], kerf: int) -> List[OptimizedBar]
                     needed = cut.cut_request.length + (kerf if simulated_has_cuts[key] else 0)
                     if needed <= simulated_remaining[key]:
                         after = simulated_remaining[key] - needed
-                        if best_after is None or after < best_after:
+                        if best_after is None or after < best_after or (after==best_after and bar.bar_id<best_bar.bar_id):
                             best_after = after
                             best_bar = receiver
                 if best_bar is None:
@@ -353,7 +353,7 @@ def optimize_cuts(
         if not expanded:
             continue
 
-        sorted_requests = sorted(expanded, key=lambda r: r.length, reverse=True)
+        sorted_requests = sorted(expanded,key=lambda r:(-r.length,r.position_code,r.source_ref,r.left_angle,r.right_angle,r.profile_stock_no))
         sample = sorted_requests[0]
         stock_lengths = _resolve_stock_lengths(
             bar_length, profile_id, sample.profile_stock_no, default_length=6000
@@ -420,7 +420,7 @@ def optimize_cuts(
                 needed = request.length + (kerf if bar.cuts else 0)
                 if needed <= bar.remaining:
                     after = bar.remaining - needed
-                    if best_after is None or after < best_after:
+                    if best_after is None or after < best_after or (after==best_after and bar.bar_id<best_bar.bar_id):
                         best_after = after
                         best_bar = bar
 
